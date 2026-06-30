@@ -1,0 +1,132 @@
+/* ============================================================
+   HomeUser — page d'accueil utilisateur connecté
+   ============================================================ */
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+/* Sections */
+.section {
+  padding: 60px 24px;
+}
+
+.sectionAlt {
+  background: var(--color-surface);
+}
+
+.sectionContainer {
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sectionTitleBlock {
+  flex: 1;
+  min-width: 280px;
+}
+
+.sectionTitle {
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -0.5px;
+  margin: 0 0 4px;
+  color: var(--color-text);
+}
+
+.sectionTitleEm {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sectionSubtitle {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.sectionAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.sectionAction:hover {
+  background: var(--color-text);
+  color: white;
+  border-color: var(--color-text);
+}
+
+/* ============================================================
+   BANNIÈRE IA (recommandations)
+   ============================================================ */
+.aiBanner {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-light),
+    var(--color-pink-light)
+  );
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: var(--radius-xl);
+  padding: 16px 20px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aiBannerIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+.aiBannerText {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.aiBannerText strong {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .section { padding: 40px 20px; }
+  .sectionHeader { margin-bottom: 20px; }
+  .aiBanner { padding: 12px 14px; }
+  .aiBannerText { font-size: 12px; }
+}

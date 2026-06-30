@@ -1,0 +1,188 @@
+/* ============================================================
+   Button — bouton réutilisable
+   ============================================================ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   TAILLES
+   ============================================================ */
+.sm {
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-md);
+}
+
+.md {
+  padding: 9px 16px;
+  font-size: 13px;
+  border-radius: var(--radius-md);
+}
+
+.lg {
+  padding: 12px 20px;
+  font-size: 14px;
+  border-radius: var(--radius-lg);
+}
+
+.xl {
+  padding: 16px 28px;
+  font-size: 15px;
+  border-radius: var(--radius-lg);
+}
+
+/* ============================================================
+   VARIANTES
+   ============================================================ */
+
+/* Primary — bouton principal sombre */
+.primary {
+  background: var(--color-text);
+  color: white;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+}
+.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+}
+
+/* Gradient — bouton avec dégradé indigo→pink (CTA principal de la home) */
+.gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+}
+.gradient:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.4);
+}
+
+/* Coral gradient — pour les organisateurs */
+.coral {
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  color: white;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+}
+.coral:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+}
+
+/* Secondary — fond blanc avec bordure */
+.secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.secondary:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* Outline — transparent avec bordure */
+.outline {
+  background: transparent;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-text);
+}
+.outline:hover:not(:disabled) {
+  background: var(--color-text);
+  color: white;
+}
+
+/* Ghost — sans bordure, juste hover */
+.ghost {
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+  color: var(--color-primary);
+}
+
+/* Danger */
+.danger {
+  background: var(--color-danger);
+  color: white;
+}
+.danger:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
+/* Light — fond clair pour boutons doux */
+.light {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.light:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ============================================================
+   FULL WIDTH
+   ============================================================ */
+.fullWidth {
+  width: 100%;
+}
+
+/* ============================================================
+   EFFET SHINE (lumière qui glisse au hover)
+   ============================================================ */
+.shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.shine:hover:not(:disabled)::after {
+  left: 100%;
+}
+
+/* ============================================================
+   SPINNER (loading state)
+   ============================================================ */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+/* ============================================================
+   FLÈCHE qui glisse (right icon)
+   ============================================================ */
+.button :global(.arrow-slide) {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.button:hover:not(:disabled) :global(.arrow-slide) {
+  transform: translateX(4px);
+}

@@ -1,0 +1,358 @@
+/* ============================================================
+   EventCard — carte d'événement réutilisable
+   ============================================================ */
+.card {
+  display: block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+  height: 100%;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+/* ============================================================
+   COVER — image de couverture
+   ============================================================ */
+.cover {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover .coverImage {
+  transform: scale(1.06);
+}
+
+.coverIconFallback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ============================================================
+   BADGES (HOT, BON PLAN, GRATUIT)
+   ============================================================ */
+.badgeTopLeft {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  z-index: 2;
+}
+
+.badgeHot {
+  background: var(--color-coral);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+.badgeDeal {
+  background: var(--color-coral);
+}
+
+.badgeFree {
+  background: var(--color-success);
+}
+
+/* ============================================================
+   BOUTON LIKE (cœur)
+   ============================================================ */
+.likeBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  color: var(--color-text);
+  z-index: 2;
+}
+
+.likeBtn:hover {
+  transform: scale(1.15);
+}
+
+.likeBtn.liked {
+  color: var(--color-pink);
+}
+
+/* ============================================================
+   CONTENU
+   ============================================================ */
+.content {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Catégorie badge */
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+/* Titre */
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  font-family: var(--font-serif);
+  letter-spacing: -0.2px;
+  margin: 0 0 8px;
+  color: var(--color-text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: 44px;
+}
+
+/* Méta-infos (date, lieu) */
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: auto;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Footer (prix + flèche) */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.priceOld {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.priceCurrent {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-serif);
+  color: var(--color-text);
+}
+
+.priceCurrent.deal {
+  color: var(--color-coral);
+}
+
+.arrow {
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+}
+
+.card:hover .arrow {
+  transform: translateX(4px);
+  color: var(--color-primary);
+}
+
+/* ============================================================
+   VARIANTE HORIZONTAL — carte horizontale (page recherche)
+   ============================================================ */
+.cardHorizontal {
+  display: flex;
+  flex-direction: row;
+  height: auto;
+}
+
+.cardHorizontal .cover {
+  width: 240px;
+  min-height: 180px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.cardHorizontal .content {
+  flex: 1;
+  padding: 18px;
+}
+
+.cardHorizontal .title {
+  font-size: 19px;
+  margin-bottom: 6px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-height: auto;
+}
+
+.cardHorizontal .description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.cardHorizontal .meta {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.cardHorizontal .footer {
+  margin-top: auto;
+}
+
+.detailBtn {
+  padding: 8px 14px;
+  background: var(--color-text);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+}
+
+/* ============================================================
+   VARIANTE COMPACT — mini-carte (sidebar / recommandations)
+   ============================================================ */
+.cardCompact {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+
+.cardCompact:hover {
+  background: var(--color-primary-light);
+  transform: none;
+  box-shadow: none;
+}
+
+.compactIcon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+}
+
+.compactBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.compactTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.compactMeta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 720px) {
+  .cardHorizontal {
+    flex-direction: column;
+  }
+
+  .cardHorizontal .cover {
+    width: 100%;
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cover {
+    height: 180px;
+  }
+
+  .title {
+    font-size: 16px;
+    min-height: 40px;
+  }
+}

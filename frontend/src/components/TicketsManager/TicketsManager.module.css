@@ -1,0 +1,283 @@
+/* ============================================================
+   TicketsManager — gestion de la liste de types de billets
+   ============================================================ */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.summary {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.summary strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ============================================================
+   CARTE TICKET INDIVIDUEL
+   ============================================================ */
+.ticket {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ticket:hover {
+  border-color: var(--color-border-strong);
+}
+
+.ticketHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ticketBadges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticketBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dealBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  color: white;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-danger);
+  padding: 6px;
+  display: flex;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.removeBtn:hover {
+  background: var(--color-danger-light);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 10px;
+}
+
+/* ============================================================
+   TOGGLE BON PLAN
+   ============================================================ */
+.dealToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-coral);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-coral-text);
+  transition: all 0.15s;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.dealToggle:hover {
+  background: var(--color-coral-light);
+}
+
+.dealToggle.active {
+  background: var(--color-coral-light);
+  border-style: solid;
+}
+
+.toggleSwitch {
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--color-border-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggleSwitch.on {
+  background: var(--color-coral);
+}
+
+.toggleDot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggleSwitch.on .toggleDot {
+  left: 16px;
+}
+
+.dealText {
+  flex: 1;
+}
+
+/* ============================================================
+   ZONE PRIX ORIGINAL (apparait quand bon plan)
+   ============================================================ */
+.dealExtra {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-coral-light);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-coral);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dealCalc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+}
+
+.dealCalcLabel {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.dealCalcValue {
+  font-weight: 700;
+  color: var(--color-coral-text);
+}
+
+/* ============================================================
+   AJOUTER UN BILLET
+   ============================================================ */
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1.5px dashed var(--color-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.15s;
+  align-self: flex-start;
+}
+
+.addBtn:hover {
+  background: var(--color-primary-light);
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   ERROR GLOBALE
+   ============================================================ */
+.globalError {
+  padding: 10px 12px;
+  background: var(--color-danger-light);
+  color: var(--color-danger-text);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  border-left: 3px solid var(--color-danger);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .fields {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ticket {
+    padding: 14px;
+  }
+}

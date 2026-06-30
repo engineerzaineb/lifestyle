@@ -1,0 +1,112 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* État vide */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.emptyIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.emptyTitle {
+  font-size: 20px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  margin: 0 0 8px;
+  color: var(--color-text);
+}
+
+.emptyDesc {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 20px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.emptyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.25);
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.skeletonCover {
+  height: 140px;
+  background: var(--color-surface-alt);
+}
+
+.skeletonBody {
+  padding: 16px;
+}
+
+.skeletonLine {
+  height: 12px;
+  background: var(--color-surface-alt);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.skeletonLine.w70 { width: 70%; }
+.skeletonLine.w40 { width: 40%; }
+.skeletonLine.w90 { width: 90%; }
+
+@media (max-width: 640px) {
+  .main {
+    padding: 20px 16px 48px;
+  }
+}

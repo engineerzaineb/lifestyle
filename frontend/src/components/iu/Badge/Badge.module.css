@@ -1,0 +1,33 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.sm { padding: 2px 7px; font-size: 10px; gap: 3px; }
+.md { padding: 3px 9px; font-size: 11px; gap: 4px; }
+.lg { padding: 4px 11px; font-size: 12px; gap: 5px; }
+
+.primary { background: var(--color-primary-light); color: var(--color-primary); }
+.pink { background: var(--color-pink-light); color: var(--color-pink-text); }
+.coral { background: var(--color-coral-light); color: var(--color-coral-text); }
+.success { background: var(--color-success-light); color: var(--color-success-text); }
+.warning { background: var(--color-warning-light); color: var(--color-warning-text); }
+.danger { background: var(--color-danger-light); color: var(--color-danger-text); }
+.info { background: var(--color-info-light); color: var(--color-info-text); }
+.neutral { background: var(--color-surface-alt); color: var(--color-text-muted); }
+
+.solid.primary { background: var(--color-primary); color: white; }
+.solid.pink { background: var(--color-pink); color: white; }
+.solid.coral { background: var(--color-coral); color: white; }
+.solid.success { background: var(--color-success); color: white; }
+.solid.warning { background: var(--color-warning); color: white; }
+.solid.danger { background: var(--color-danger); color: white; }
+
+.pulse { animation: pulse 2.5s ease-in-out infinite; }

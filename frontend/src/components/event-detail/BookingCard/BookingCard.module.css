@@ -1,0 +1,324 @@
+.wrapper {
+  position: sticky;
+  top: 90px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+}
+
+/* ============================================================
+   PRIX EN HAUT
+   ============================================================ */
+.priceSection {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.priceFrom {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.priceValue {
+  font-size: 32px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -1px;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1;
+}
+
+.priceGratuit {
+  color: var(--color-success);
+  font-style: italic;
+}
+
+.priceOriginal {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.priceDeal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   BARRE DE REMPLISSAGE
+   ============================================================ */
+.fillBar {
+  margin-top: 12px;
+}
+
+.fillTrack {
+  height: 4px;
+  background: var(--color-surface-alt);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fillFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-pink));
+  transition: width 0.5s;
+  border-radius: 2px;
+}
+
+.fillText {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+  text-align: right;
+}
+
+/* ============================================================
+   LISTE DE BILLETS
+   ============================================================ */
+.ticketsTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.ticketRow {
+  padding: 12px 14px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+
+.ticketHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ticketInfo {
+  flex: 1;
+}
+
+.ticketName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticketSubtitle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.ticketPrice {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: var(--font-serif);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ticketPriceOriginal {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  font-weight: 400;
+  font-family: var(--font-body);
+}
+
+.ticketGratuit {
+  color: var(--color-success);
+}
+
+.ticketSoldout {
+  opacity: 0.5;
+}
+
+/* ============================================================
+   SÉLECTEUR DE QUANTITÉ
+   ============================================================ */
+.qtySelector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qtyLabel {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.qtyControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.qtyBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--color-text);
+  transition: background 0.15s;
+}
+
+.qtyBtn:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+}
+
+.qtyBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.qtyValue {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.qtySoldout {
+  font-size: 11px;
+  color: var(--color-danger);
+  font-weight: 600;
+  padding: 6px 10px;
+  background: var(--color-danger-light);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   TOTAL + BOUTON
+   ============================================================ */
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border);
+  margin-top: 12px;
+}
+
+.totalLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.totalValue {
+  font-size: 22px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -0.5px;
+  color: var(--color-text);
+}
+
+.savings {
+  font-size: 11px;
+  color: var(--color-success);
+  font-weight: 600;
+  text-align: right;
+  margin-top: 2px;
+}
+
+.bookBtn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-top: 8px;
+}
+
+.bookBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(79, 70, 229, 0.4);
+}
+
+.bookBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.note {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+
+.noteIcon {
+  color: var(--color-success);
+  display: inline;
+  vertical-align: middle;
+}
+
+@media (max-width: 960px) {
+  .wrapper {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 20px;
+  }
+}

@@ -1,0 +1,214 @@
+/* ============================================================
+   Ticker — bandeau défilant compact et discret
+   ============================================================ */
+.ticker {
+  background: var(--color-text);
+  color: white;
+  padding: 10px 0;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+/* Fondu sur les bords */
+.ticker::before,
+.ticker::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ticker::before {
+  left: 0;
+  background: linear-gradient(to right, var(--color-text), transparent);
+}
+
+.ticker::after {
+  right: 0;
+  background: linear-gradient(to left, var(--color-text), transparent);
+}
+
+/* ============================================================
+   PISTE QUI DÉFILE
+   ============================================================ */
+.track {
+  display: flex;
+  gap: 32px;
+  animation: ticker 50s linear infinite;
+  white-space: nowrap;
+  width: max-content;
+  align-items: center;
+}
+
+.ticker:hover .track {
+  animation-play-state: paused;
+}
+
+/* ============================================================
+   ITEMS TEXTE SIMPLE
+   ============================================================ */
+.item {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Emoji flottant dans le ticker */
+.itemEmoji {
+  font-size: 15px;
+  line-height: 1;
+  display: inline-block;
+  animation: emojiBob 2.5s ease-in-out infinite;
+}
+
+@keyframes emojiBob {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(3deg);
+  }
+}
+
+.separator {
+  opacity: 0.25;
+  font-size: 14px;
+  font-weight: 300;
+}
+
+/* ============================================================
+   ITEM DEAL — badge compact
+   ============================================================ */
+.dealItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 3px 10px rgba(249, 115, 22, 0.35);
+  animation: badgePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(249, 115, 22, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.5);
+  }
+}
+
+.dealIcon {
+  display: inline-flex;
+  align-items: center;
+  animation: iconWiggle 1.5s ease-in-out infinite;
+}
+
+@keyframes iconWiggle {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-15deg) scale(1.1);
+  }
+  75% {
+    transform: rotate(15deg) scale(1.1);
+  }
+}
+
+/* ============================================================
+   ITEM HOT — badge compact
+   ============================================================ */
+.hotItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, var(--color-pink), var(--color-primary));
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
+  animation: badgePulseHot 2.5s ease-in-out 0.5s infinite;
+}
+
+@keyframes badgePulseHot {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 14px rgba(236, 72, 153, 0.5);
+  }
+}
+
+.hotIcon {
+  display: inline-flex;
+  align-items: center;
+  animation: flameDance 1.8s ease-in-out infinite;
+}
+
+@keyframes flameDance {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-1px) scale(1.12) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-1px) scale(1.12) rotate(5deg);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .ticker {
+    padding: 8px 0;
+  }
+
+  .track {
+    gap: 24px;
+    animation-duration: 40s;
+  }
+
+  .item,
+  .dealItem,
+  .hotItem {
+    font-size: 11px;
+  }
+
+  .dealItem,
+  .hotItem {
+    padding: 3px 9px;
+  }
+
+  .itemEmoji {
+    font-size: 13px;
+  }
+
+  .ticker::before,
+  .ticker::after {
+    width: 40px;
+  }
+}
