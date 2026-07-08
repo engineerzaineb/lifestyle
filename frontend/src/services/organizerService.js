@@ -1,6 +1,7 @@
 import api from "./api";
 
-const USE_MOCK = true;
+// Backend branché : actions duplicate / cancel / publish ajoutées au EventViewSet
+const USE_MOCK = false;
 
 
 /*

@@ -69,6 +69,7 @@ class Event(models.Model):
     ('en_attente', 'En attente'),
     ('publie', 'Publié'),
     ('refuse', 'Refusé'),
+    ('annule', 'Annulé'),
 )
 
     titre = models.CharField(max_length=200)

@@ -126,7 +126,6 @@ class UserLocation(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - ({self.latitude}, {self.longitude}) - {self.detected_at}"
-    from django.utils.text import slugify
 
 
 # Modèle pour les centres d'intérêt 

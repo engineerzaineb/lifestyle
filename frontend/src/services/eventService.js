@@ -106,7 +106,7 @@ export async function fetchCategories() {
  * Récupère MES brouillons d'événements
  */
 export async function fetchMyBrouillons() {
-  if (USE_MOCK) return { results: [], count: 0 };
+  if (USE_MOCK) return [];
   const { data } = await api.get("/events/", { params: { mes_brouillons: "true" } });
   return data.results || data;
 }
@@ -118,32 +118,6 @@ export async function createBrouillon(brouillonData) {
   if (USE_MOCK) return { id: Date.now(), ...brouillonData };
   const payload = { ...brouillonData, statut: "brouillon", is_draft: true };
   const { data } = await api.post("/events/", payload);
-  return data;
-}
-
-/**
- * Met à jour un brouillon
- */
-export async function updateBrouillon(id, brouillonData) {
-  if (USE_MOCK) return { id, ...brouillonData };
-  const { data } = await api.patch(`/events/${id}/`, brouillonData);
-  return data;
-}
-/**
- * Récupère MES brouillons d'événements
- */
-export async function fetchMyBrouillons() {
-  if (USE_MOCK) return [];
-  const { data } = await api.get("/events/", { params: { mes_brouillons: "true" } });
-  return data.results || data;
-}
-
-/**
- * Crée un brouillon d'événement (champs optionnels sauf titre)
- */
-export async function createBrouillon(brouillonData) {
-  if (USE_MOCK) return { id: Date.now(), ...brouillonData };
-  const { data } = await api.post("/events/", brouillonData);
   return data;
 }
 

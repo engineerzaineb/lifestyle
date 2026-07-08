@@ -56,38 +56,6 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Serializer pour l'inscription
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
-    latitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, write_only=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, write_only=True)
-
-    class Meta:
-        model = User
-        fields = ['email', 'nom', 'prenom', 'telephone', 'ville', 'role', 'password', 'latitude', 'longitude']
-        extra_kwargs = {
-            'role': {'required': False, 'default': 'utilisateur'},
-        }
-
-    def validate_role(self, value):
-        # Seuls les rôles "utilisateur" et "admin" sont acceptés à l'inscription
-        # (organisateur s'obtient via demande validée)
-        if value not in ['utilisateur', 'admin']:
-            return 'utilisateur'
-        return value
-
-    def create(self, validated_data):
-        latitude = validated_data.pop('latitude', None)
-        longitude = validated_data.pop('longitude', None)
-        password = validated_data.pop('password')
-
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-
-        # Si latitude/longitude fournis, on enregistre la position
-        if latitude is not None and longitude is not None:
-            user.update_location(latitude, longitude, source='register')
-
-        return user
     password = serializers.CharField(
         write_only=True,
         required=True,
@@ -119,7 +87,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             'prenom',
             'telephone',
             'ville',
-            'role',
             'latitude',
             'longitude',
             'password',
@@ -135,15 +102,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cet email est déjà utilisé.")
         return value.lower()
 
-    # Validation : rôle autorisé
-    def validate_role(self, value):
-        allowed = ['utilisateur', 'client']
-        if value not in allowed:
-            raise serializers.ValidationError(
-                f"Le rôle doit être : {', '.join(allowed)}"
-            )
-        return value
-
     # Validation : latitude entre -90 et 90
     def validate_latitude(self, value):
         if value is not None and (value < -90 or value > 90):
@@ -157,10 +115,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     # Crée le user et enregistre la position (si fournie)
+    # Le rôle est TOUJOURS 'utilisateur' au signup.
+    # Devenir organisateur passe par DemandeOrganisateur (validée par un admin).
+    # Devenir admin passe par `createsuperuser`.
     def create(self, validated_data):
         latitude = validated_data.pop('latitude', None)
         longitude = validated_data.pop('longitude', None)
         password = validated_data.pop('password')
+
+        # Forçage du rôle, peu importe ce que le frontend envoie
+        validated_data['role'] = 'utilisateur'
 
         user = User.objects.create_user(password=password, **validated_data)
 

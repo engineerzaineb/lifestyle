@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime, time
-from rest_framework import viewsets, permissions, filters
+from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -482,6 +482,141 @@ class EventViewSet(viewsets.ModelViewSet):
         results = list(similar[:6])
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
+
+    # POST /api/events/{id}/duplicate/
+    # Crée une copie d'un événement (en brouillon, date remise à blanc)
+    # Réservé au propriétaire ou à un admin (via has_object_permission).
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='duplicate'
+    )
+    def duplicate(self, request, pk=None):
+        original = self.get_object()  # déclenche has_object_permission
+
+        # On garde les relations AVANT de muter l'instance
+        tags = list(original.tags.all())
+        types_billets_data = [
+            {
+                'nom': tb.nom,
+                'description': tb.description,
+                'prix': tb.prix,
+                'is_bon_plan': tb.is_bon_plan,
+                'prix_original': tb.prix_original,
+                'capacite': tb.capacite,
+                'ordre': tb.ordre,
+            }
+            for tb in original.types_billets.all()
+        ]
+
+        # Astuce Django pour cloner l'instance
+        original.pk = None
+        original._state.adding = True
+        original.titre = f"{original.titre} (copie)"
+        original.statut = 'brouillon'
+        original.is_valide = False
+        original.valide_par = None
+        original.motif_refus = ''
+        original.date_evenement = None  # le user choisira une nouvelle date
+        original.capacite = None
+        original.prix = None
+        original.organisateur = request.user
+        original.save()
+
+        # Recrée les tags et types de billets
+        if tags:
+            original.tags.set(tags)
+        for data in types_billets_data:
+            TypeBillet.objects.create(event=original, **data)
+        original.update_capacite_et_prix()
+
+        serializer = EventDetailSerializer(original, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    # POST /api/events/{id}/cancel/
+    # Annule un événement publié ou en attente. body: { reason | motif }
+    # Réservé au propriétaire ou à un admin.
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='cancel'
+    )
+    def cancel(self, request, pk=None):
+        event = self.get_object()
+
+        if event.statut not in ('publie', 'en_attente'):
+            return Response(
+                {'detail': "Seuls les événements publiés ou en attente peuvent être annulés."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Frontend envoie 'reason', backend utilise aussi 'motif' (cohérence)
+        motif = (request.data.get('reason') or request.data.get('motif') or '').strip()
+
+        event.statut = 'annule'
+        if motif:
+            event.motif_refus = motif
+        event.save()
+
+        serializer = EventDetailSerializer(event, context={'request': request})
+        return Response(serializer.data)
+
+    # POST /api/events/{id}/publish/
+    # Soumet un brouillon à validation admin (passe en 'en_attente').
+    # Doit avoir tous les champs obligatoires (mêmes règles que EventDetailSerializer.validate)
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='publish'
+    )
+    def publish(self, request, pk=None):
+        event = self.get_object()
+
+        # Seul un vrai organisateur (ou admin) peut publier — un user avec
+        # demande en_attente ne peut que créer/éditer ses brouillons.
+        if not (request.user.is_organisateur or request.user.role == 'admin'):
+            return Response(
+                {'detail': "Vous devez être organisateur pour publier un événement."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if event.statut != 'brouillon':
+            return Response(
+                {'detail': "Seul un brouillon peut être publié."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validation des champs requis pour publier
+        missing = []
+        if not event.titre:
+            missing.append('titre')
+        if not event.description or len(event.description) < 20:
+            missing.append('description')
+        if not event.date_evenement:
+            missing.append('date_evenement')
+        if not event.lieu:
+            missing.append('lieu')
+        if not event.ville:
+            missing.append('ville')
+        if not event.categorie_id:
+            missing.append('categorie')
+        if not event.types_billets.exists():
+            missing.append('types_billets')
+
+        if missing:
+            return Response(
+                {
+                    'detail': "Champs manquants pour publier.",
+                    'missing_fields': missing,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        event.statut = 'en_attente'
+        event.save()
+
+        serializer = EventDetailSerializer(event, context={'request': request})
+        return Response(serializer.data)
 
     # POST /api/events/{id}/valider/ (admin uniquement)
     @action(

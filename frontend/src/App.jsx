@@ -43,6 +43,7 @@ import AdminLayout from "./pages/Admin/AdminLayout";
 import AdminOverview from "./pages/Admin/AdminOverview";
 import AdminDemandes from "./pages/Admin/AdminDemandes";
 import AdminRoute from "./components/AdminRoute/AdminRoute";
+import AdminEvents from "./pages/Admin/AdminEvents";
 
 import "./App.css";
 
@@ -133,7 +134,7 @@ function AppContent() {
           }>
             <Route index element={<AdminOverview />} />
             <Route path="demandes" element={<AdminDemandes />} />
-            <Route path="events" element={<Placeholder name="Gestion événements" />} />
+            <Route path="events" element={<AdminEvents />} />
             <Route path="users" element={<Placeholder name="Gestion utilisateurs" />} />
             <Route path="categories" element={<Placeholder name="Gestion catégories" />} />
           </Route>
