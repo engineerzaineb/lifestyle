@@ -102,7 +102,7 @@ function AppContent() {
             <ProtectedRoute><Profile /></ProtectedRoute>
           } />
           <Route path="/devenir-organisateur" element={
-            <DevenirOrganisateur />
+            <ProtectedRoute><DevenirOrganisateur /></ProtectedRoute>
           } />
           <Route path="/settings" element={
             <ProtectedRoute><Placeholder name="Paramètres" /></ProtectedRoute>

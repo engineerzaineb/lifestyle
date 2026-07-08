@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Building2, Clock, XCircle,
+  ArrowLeft, Building2, Clock, XCircle, CheckCircle,
   AlertCircle, Trash2, Plus, FileText, Edit3, MapPin, Calendar,
 } from "lucide-react";
 import {
   getMyDemandeOrganisateur,
   createDemandeOrganisateur,
   cancelMyDemandeOrganisateur,
+  getCurrentUser,
 } from "../../services/authService";
 import { fetchCategories, fetchMyBrouillons, deleteEvent } from "../../services/eventService";
 import { useAuth } from "../../context/useAuth";
@@ -23,7 +24,7 @@ const TYPES = [
 
 export default function DevenirOrganisateur() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const toast = useToastContext();
 
   const [demande, setDemande] = useState(null);
@@ -81,6 +82,19 @@ export default function DevenirOrganisateur() {
       navigate("/dashboard");
     }
   }, [user, navigate]);
+
+  // Si la demande vient d'être validée par l'admin mais que l'AuthContext
+  // local est encore stale (is_organisateur=false), on rafraîchit depuis /me/
+  // pour que la prochaine navigation reflète le nouveau statut.
+  useEffect(() => {
+    if (demande?.statut === "valide" && !user?.is_organisateur) {
+      getCurrentUser()
+        .then((fresh) => {
+          if (fresh) updateUser(fresh);
+        })
+        .catch((err) => console.error("Erreur refresh user :", err));
+    }
+  }, [demande, user, updateUser]);
 
   const updateField = (field, value) => {
     setForm({ ...form, [field]: value });
@@ -319,6 +333,31 @@ export default function DevenirOrganisateur() {
           </>
         )}
 
+        {/* === DEMANDE VALIDÉE === */}
+        {demande && demande.statut === "valide" && (
+          <div className={styles.statusCard}>
+            <div
+              className={styles.statusIcon}
+              style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
+            >
+              <CheckCircle size={26} />
+            </div>
+            <h1 className={styles.statusTitle}>Félicitations, votre demande a été validée !</h1>
+            <p className={styles.statusText}>
+              Vous êtes désormais organisateur sur Eventu. Vous pouvez créer
+              et publier vos événements dès maintenant.
+            </p>
+
+            <button
+              onClick={() => navigate("/dashboard")}
+              className={styles.submitBtn}
+              style={{ marginTop: 8 }}
+            >
+              Accéder à mon tableau de bord
+            </button>
+          </div>
+        )}
+
         {/* === DEMANDE REFUSÉE === */}
         {demande && demande.statut === "refuse" && (
           <div className={styles.statusCard}>
@@ -336,7 +375,17 @@ export default function DevenirOrganisateur() {
               </div>
             )}
             <button
-              onClick={() => setDemande(null)}
+              onClick={async () => {
+                try {
+                  // On supprime la demande refusée en base pour permettre la re-soumission
+                  await cancelMyDemandeOrganisateur();
+                  setDemande(null);
+                  toast.info("Vous pouvez remplir une nouvelle demande");
+                } catch (err) {
+                  console.error("Erreur suppression demande refusée :", err);
+                  toast.error("Impossible de repartir sur une nouvelle demande");
+                }
+              }}
               className={styles.submitBtn}
               style={{ marginTop: 16 }}
             >

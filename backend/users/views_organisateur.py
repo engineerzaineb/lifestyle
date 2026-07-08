@@ -53,16 +53,19 @@ class DemandeOrganisateurView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        """DELETE /api/auth/demande-organisateur/ : annuler ma demande (seulement si en_attente)"""
+        """DELETE /api/auth/demande-organisateur/ : annule / supprime ma demande.
+        Autorisé si la demande est en_attente (annulation) ou refuse
+        (permet de repartir sur une nouvelle demande après un refus).
+        """
         try:
             demande = DemandeOrganisateur.objects.get(user=request.user)
-            if demande.statut != 'en_attente':
+            if demande.statut not in ('en_attente', 'refuse'):
                 return Response(
-                    {'detail': 'Vous ne pouvez annuler que les demandes en attente'},
+                    {'detail': "Vous ne pouvez pas supprimer une demande déjà validée."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             demande.delete()
-            return Response({'detail': 'Demande annulée'}, status=status.HTTP_200_OK)
+            return Response({'detail': 'Demande supprimée'}, status=status.HTTP_200_OK)
         except DemandeOrganisateur.DoesNotExist:
             return Response({'detail': 'Aucune demande'}, status=status.HTTP_404_NOT_FOUND)
 
