@@ -1,3 +1,4 @@
+from decouple import config
 from pathlib import Path
 from datetime import timedelta
 
@@ -74,8 +75,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Base de données
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME', default='eventu'),
+        'USER': config('DB_USER', default='eventu_user'),
+        'PASSWORD': config('DB_PASSWORD', default='eventu_dev_2026'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
     }
 }
 

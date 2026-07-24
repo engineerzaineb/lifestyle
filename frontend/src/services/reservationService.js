@@ -1,11 +1,7 @@
 import api from "./api";
 
 const USE_MOCK = false;
-/**
- * Normalise une réservation du backend vers la forme attendue par les composants.
- * Backend : code_reference / total_prix / items[].quantite / "annulee" / date_annulation
- * Front   : code / total / items[].quantity / "annule" / cancelled_at
- */
+
 function normalizeReservation(r) {
   if (!r) return r;
   return {
@@ -29,8 +25,7 @@ export async function fetchMyReservations() {
   }
 
   const { data } = await api.get("/reservations/mes-reservations/");
-  // Le backend renvoie soit un tableau direct (action mes-reservations),
-  // soit un objet paginé { results: [...] }. On gère les deux.
+  
   const list = Array.isArray(data) ? data : (data.results || []);
   return list.map(normalizeReservation);
 }
@@ -98,9 +93,7 @@ export function countByReservationTab(reservations) {
   };
 }
 
-/*
- *statistiques globales
-*/
+/*statistiques globales*/
 
 /*calculer les stats globales de l'utilisateur*/
 export function calculateUserStats(reservations) {
@@ -130,10 +123,6 @@ export function calculateUserStats(reservations) {
 }
 
 
-/*
- * Détermine le statut affichable d'une réservation
- * @returns "upcoming" | "today" | "past" | "cancelled"
- */
 export function getReservationStatus(reservation) {
   if (reservation.statut === "annule") return "cancelled";
 
@@ -159,10 +148,7 @@ export function getReservationStatusDisplay(status) {
   return map[status] || map.upcoming;
 }
 
-/*
- * Vérifie si une réservation peut être annulée
- * (uniquement si > 48h avant l'événement)
- */
+
 export function canCancelReservation(reservation) {
   if (reservation.statut === "annule") return false;
 
