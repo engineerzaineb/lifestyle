@@ -78,6 +78,24 @@ class Event(models.Model):
     date_evenement = models.DateTimeField(null=True, blank=True)
     lieu = models.CharField(max_length=200, blank=True)
     ville = models.CharField(max_length=100, blank=True)
+    
+    @property
+    def vues_count(self):
+        return self.views.count()
+
+    @property
+    def inscriptions_count(self):
+        from django.db.models import Sum
+        return self.reservations.filter(statut='confirmee').aggregate(
+            total=Sum('items__quantite')
+        )['total'] or 0
+
+    @property
+    def revenue_total(self):
+        from django.db.models import Sum
+        return self.reservations.filter(statut='confirmee').aggregate(
+            total=Sum('total_prix')
+        )['total'] or 0
 
     # Coordonnées GPS pour les recommandations par distance
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -271,5 +289,80 @@ class TypeBillet(models.Model):
 
     @property
     def places_restantes(self):
-        """À connecter avec le système de réservation plus tard."""
-        return self.capacite
+        """Places encore dispo = capacite - places réservées (statut confirmee)."""
+        from django.db.models import Sum
+        reserved = self.reservation_items.filter(
+            reservation__statut='confirmee'
+        ).aggregate(total=Sum('quantite'))['total'] or 0
+        return max(0, self.capacite - reserved)
+# === TRACKING DES VUES ===
+class EventView(models.Model):
+    """Une vue d'un événement (pour stats organisateur)."""
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='event_views',
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['event', 'viewed_at']),
+            models.Index(fields=['user', 'event']),
+        ]
+
+    def __str__(self):
+        return f"View {self.event.titre} @ {self.viewed_at:%Y-%m-%d %H:%M}"
+
+
+# === RÉSERVATIONS ===
+class Reservation(models.Model):
+    STATUT_CHOICES = (
+        ('confirmee', 'Confirmée'),
+        ('annulee', 'Annulée'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations')
+    event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name='reservations')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='confirmee')
+    total_prix = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    code_reference = models.CharField(max_length=20, unique=True, blank=True)
+    date_reservation = models.DateTimeField(auto_now_add=True)
+    date_annulation = models.DateTimeField(null=True, blank=True)
+    motif_annulation = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-date_reservation']
+
+    def save(self, *args, **kwargs):
+        # Génère la référence unique une fois qu'on a un ID
+        if not self.code_reference:
+            super().save(*args, **kwargs)
+            self.code_reference = f"RSV-{self.id:08d}"
+            super().save(update_fields=['code_reference'])
+        else:
+            super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code_reference} - {self.user.email}"
+
+    @property
+    def total_places(self):
+        return sum(item.quantite for item in self.items.all())
+
+
+class ReservationItem(models.Model):
+    """Ligne de réservation : X billets d'un type donné."""
+    reservation = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='items')
+    type_billet = models.ForeignKey('TypeBillet', on_delete=models.PROTECT, related_name='reservation_items')
+    quantite = models.PositiveIntegerField()
+    prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantite}x {self.type_billet.nom}"
+
+    @property
+    def sous_total(self):
+        return self.prix_unitaire * self.quantite

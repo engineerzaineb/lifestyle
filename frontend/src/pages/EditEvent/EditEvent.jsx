@@ -66,7 +66,7 @@ export default function EditEvent() {
           titre: data.titre || "",
           description: data.description || "",
           categorie_slug: data.categorie?.slug || "",
-          tags: data.tags || [],
+          tags: (data.tags || []).map((t) => typeof t === "string" ? t : t.nom),
           date_evenement: data.date_evenement ? data.date_evenement.slice(0, 16) : "",
           date_fin: data.date_fin ? data.date_fin.slice(0, 16) : "",
           lieu: data.lieu || "",

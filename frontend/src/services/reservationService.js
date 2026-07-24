@@ -1,6 +1,6 @@
 import api from "./api";
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 /*récupere toutes les réservations de l'utilisateur connecté*/
 export async function fetchMyReservations() {
   if (USE_MOCK) {
@@ -9,7 +9,9 @@ export async function fetchMyReservations() {
   }
 
   const { data } = await api.get("/reservations/mes-reservations/");
-  return data.results || [];
+  // Le backend renvoie soit un tableau direct (action mes-reservations),
+  // soit un objet paginé { results: [...] }. On gère les deux.
+  return Array.isArray(data) ? data : (data.results || []);
 }
 
 /*récupere une réservation par ID*/

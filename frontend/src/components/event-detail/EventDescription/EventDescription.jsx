@@ -13,8 +13,8 @@ export default function EventDescription({ event }) {
       {event.tags && event.tags.length > 0 && (
         <div className={styles.tagsList}>
           {event.tags.map((tag) => (
-            <Link key={tag} to={`/search?tag=${tag}`} className={styles.tag}>
-              #{tag}
+            <Link key={tag.id} to={`/search?tag=${tag.slug}`} className={styles.tag}>
+              #{tag.nom}
             </Link>
           ))}
         </div>

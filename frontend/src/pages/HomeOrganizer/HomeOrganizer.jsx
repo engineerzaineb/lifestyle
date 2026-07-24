@@ -24,25 +24,14 @@ export default function HomeOrganizer() {
     async function loadData() {
       setLoading(true);
       try {
-        // à Remplacer par fetchEvents({ mes_events: true })
-        const data = await fetchEvents();
+        
+        const data = await fetchEvents({ mes_events: true });
         if (cancelled) return;
 
         const allEvents = data.results || [];
-
-        // Pour  démo 
-        setPublishedEvents(allEvents.slice(0, 3));
-
-        // Mock de brouillons 
-        const mockDrafts = allEvents.slice(3, 5).map((e) => ({
-          ...e,
-          statut: "brouillon",
-          titre: e.titre + " (brouillon)",
-        }));
-        setDrafts(mockDrafts);
-
-        // Mock de réservations récentes
-        setRecentBookings(getMockBookings());
+        setPublishedEvents(allEvents.filter((e) => e.statut === "publie").slice(0, 3));
+        setDrafts(allEvents.filter((e) => e.statut === "brouillon").slice(0, 2));
+        setRecentBookings([]);
       } catch (err) {
         console.error("Erreur HomeOrganizer:", err);
       } finally {

@@ -4,6 +4,7 @@ import {
   filterByStatusTab,
   deleteMyEvent,
   duplicateEvent,
+  publishDraft,
 } from "../../services/organizerService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 
@@ -68,7 +69,7 @@ export default function OrganizerDrafts() {
     } else if (action === "publish") {
       if (!confirm(`Publier "${event.titre}" ? Il sera soumis à validation.`)) return;
       try {
-        // TODO: Appel API pour publier
+        await publishDraft(event.id);
         toast.success("Brouillon soumis pour validation");
         setEvents((prev) =>
           prev.map((e) => (e.id === event.id ? { ...e, statut: "en_attente" } : e))

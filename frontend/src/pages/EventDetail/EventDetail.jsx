@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchEvent, fetchSimilarEvents } from "../../services/eventService";
+import api from "../../services/api";
 import {
   createEmptySelection,
   updateQuantity,
@@ -32,6 +33,11 @@ export default function EventDetail() {
   const [selection, setSelection] = useState({});
   const [favorite, setFavorite] = useState(false);
 
+  // Ref sur toast pour éviter que sa nouvelle identité à chaque render
+  // ne redéclenche le useEffect de chargement (bug de boucle infinie).
+  const toastRef = useRef(toast);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
+
   // Chargement de l'événement + des similaires (en parallèle)
   useEffect(() => {
     let cancelled = false;
@@ -61,12 +67,13 @@ export default function EventDetail() {
           console.warn("Impossible de charger les événements similaires :", err);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Erreur EventDetail:", err);
         if (err.response?.status === 404) {
-          toast.error("Événement introuvable");
+          toastRef.current.error("Événement introuvable");
           navigate("/");
         } else {
-          toast.error("Impossible de charger l'événement");
+          toastRef.current.error("Impossible de charger l'événement");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -77,7 +84,15 @@ export default function EventDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id, navigate, toast]);
+  }, [id, navigate]);
+
+  // Track view (fire-and-forget, ne bloque pas le rendu)
+  useEffect(() => {
+    if (!id) return;
+    api.post(`/events/${id}/track-view/`).catch(() => {
+      // On ignore les erreurs — c'est du tracking non-critique
+    });
+  }, [id]);
 
   // Handlers
   const handleQtyChange = (key, delta) => {

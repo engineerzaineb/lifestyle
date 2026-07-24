@@ -1,4 +1,4 @@
-//import api from "./api";
+import api from "./api";
 
 /*crée une sélection vide pour un événement*/
 export function createEmptySelection(tickets) {
@@ -62,11 +62,10 @@ export function formatSelectionForAPI(selection, tickets) {
       const key = ticket.id || ticket.nom;
       const qty = selection[key] || 0;
       if (qty === 0) return null;
+      // Format attendu par le backend : { type_billet, quantite }
       return {
-        type_billet_id: ticket.id,
-        type_billet_nom: ticket.nom,
-        quantity: qty,
-        prix_unitaire: parseFloat(ticket.prix) || 0,
+        type_billet: ticket.id,
+        quantite: qty,
       };
     })
     .filter(Boolean);
@@ -77,16 +76,9 @@ export async function createReservation(eventId, selection, tickets) {
   const payload = {
     event_id: eventId,
     items: formatSelectionForAPI(selection, tickets),
-    total: calculateTotal(selection, tickets),
   };
-
-  
-
-  // Mock
-  await new Promise((r) => setTimeout(r, 800));
-  return {
-    id: Date.now(),
-    status: "confirmed",
-    ...payload,
-  };
+  // Note : on n'envoie plus `total`, le backend le recalcule côté serveur
+  // pour éviter la fraude (client qui envoie un total = 0).
+  const { data } = await api.post("/reservations/", payload);
+  return data;
 }

@@ -43,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
             'telephone',
             'ville',
             'role',
+            'is_organisateur',
             'current_latitude',
             'current_longitude',
             'last_location_update',

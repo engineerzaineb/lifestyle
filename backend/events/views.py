@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q, F, Case, When, BooleanField, Value, Exists, OuterRef
-from .models import Event, Categorie, Tag, TypeBillet
+from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
-    CategorieSerializer, TagSerializer
+    CategorieSerializer, TagSerializer,
+    ReservationReadSerializer, ReservationCreateSerializer,
 )
 
 
@@ -356,6 +357,38 @@ class EventViewSet(viewsets.ModelViewSet):
         results = results[:20]
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
+    # POST /api/events/{id}/track-view/
+    # Enregistre une vue (anonyme ou authentifié). Déduplique si même user < 1h.
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='track-view',
+        permission_classes=[permissions.AllowAny],
+    )
+    def track_view(self, request, pk=None):
+        event = self.get_object()
+
+        # Déduplication : même user (ou même IP anon) < 1h => on ne recompte pas
+        cutoff = timezone.now() - timedelta(hours=1)
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+        ip = ip.split(',')[0].strip() if ip else None
+
+        recent_filter = {'event': event, 'viewed_at__gte': cutoff}
+        if request.user.is_authenticated:
+            recent_filter['user'] = request.user
+        else:
+            recent_filter['user__isnull'] = True
+            recent_filter['ip_address'] = ip
+
+        if not EventView.objects.filter(**recent_filter).exists():
+            EventView.objects.create(
+                event=event,
+                user=request.user if request.user.is_authenticated else None,
+                ip_address=ip,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+            )
+
+        return Response({'vues': event.vues_count})
 
     # GET /api/events/decouvertes/
     # Events de catégories hors intérêts du user (élargir les horizons)
@@ -689,3 +722,67 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [permissions.AllowAny]
+# ============================================================
+# ViewSet pour les réservations
+# ============================================================
+class ReservationViewSet(viewsets.ModelViewSet):
+    """CRUD des réservations pour le user connecté."""
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'head', 'options']  # pas de put/patch/delete direct
+
+    def get_queryset(self):
+        # Un user ne voit que SES réservations (l'admin voit tout via /admin/ si besoin)
+        return Reservation.objects.filter(user=self.request.user) \
+            .select_related('event', 'event__categorie', 'event__organisateur') \
+            .prefetch_related('items', 'items__type_billet')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ReservationCreateSerializer
+        return ReservationReadSerializer
+
+    # GET /api/reservations/mes-reservations/
+    # Alias pour matcher l'URL utilisée par le frontend (identique au GET /reservations/)
+    @action(detail=False, methods=['get'], url_path='mes-reservations')
+    def mes_reservations(self, request):
+        qs = self.get_queryset()
+        serializer = ReservationReadSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    # POST /api/reservations/{id}/cancel/
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        reservation = self.get_object()
+        if reservation.statut == 'annulee':
+            return Response(
+                {'detail': 'Cette réservation est déjà annulée.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reservation.statut = 'annulee'
+        reservation.date_annulation = timezone.now()
+        reservation.motif_annulation = (request.data.get('reason') or '').strip()
+        reservation.save()
+        return Response(
+            ReservationReadSerializer(reservation, context={'request': request}).data
+        )
+
+    # GET /api/reservations/{id}/tickets-pdf/
+    # Placeholder : renvoie les infos billets en JSON pour l'instant (PDF plus tard)
+    @action(detail=True, methods=['get'], url_path='tickets-pdf')
+    def tickets_pdf(self, request, pk=None):
+        reservation = self.get_object()
+        return Response({
+            'code_reference': reservation.code_reference,
+            'event': reservation.event.titre,
+            'date': reservation.event.date_evenement,
+            'items': [
+                {
+                    'type': item.type_billet.nom,
+                    'quantite': item.quantite,
+                    'prix_unitaire': str(item.prix_unitaire),
+                }
+                for item in reservation.items.all()
+            ],
+            'total': str(reservation.total_prix),
+            'detail': 'Génération PDF à venir. Pour l\'instant, imprime cette page.',
+        })

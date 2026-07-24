@@ -1,6 +1,7 @@
+from decimal import Decimal
 from rest_framework import serializers
 from django.utils.text import slugify
-from .models import Event, Categorie, Tag, TypeBillet
+from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationItem
 
 
 class CategorieSerializer(serializers.ModelSerializer):
@@ -52,6 +53,11 @@ class EventListSerializer(serializers.ModelSerializer):
     reduction_max = serializers.IntegerField(read_only=True)
     image_url = serializers.SerializerMethodField()
 
+    # Stats organisateur
+    vues = serializers.SerializerMethodField()
+    inscriptions = serializers.SerializerMethodField()
+    revenue = serializers.SerializerMethodField()
+
     class Meta:
         model = Event
         fields = [
@@ -61,6 +67,7 @@ class EventListSerializer(serializers.ModelSerializer):
             'has_bon_plan', 'reduction_max',
             'organisateur_nom', 'image_url', 'created_at',
             'motif_refus',
+            'vues', 'inscriptions', 'revenue',
         ]
 
     def get_image_url(self, obj):
@@ -69,6 +76,21 @@ class EventListSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
+        return None
+
+    def get_vues(self, obj):
+        return obj.vues_count
+
+    def get_inscriptions(self, obj):
+        return obj.inscriptions_count
+
+    def get_revenue(self, obj):
+        """Revenue exposé uniquement à l'organisateur ou à l'admin."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        if request.user.role == 'admin' or obj.organisateur_id == request.user.id:
+            return float(obj.revenue_total)
         return None
 
 
@@ -97,6 +119,11 @@ class EventDetailSerializer(serializers.ModelSerializer):
     capacite_totale = serializers.IntegerField(read_only=True)
     prix_min = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
+    # Stats organisateur
+    vues = serializers.SerializerMethodField()
+    inscriptions = serializers.SerializerMethodField()
+    revenue = serializers.SerializerMethodField()
+
     class Meta:
         model = Event
         fields = [
@@ -109,11 +136,27 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'completion_percentage', 'missing_fields',
             'categorie_slug', 'nouvelle_categorie', 'tags_list',
             'types_billets_data', 'is_draft',
+            'vues', 'inscriptions', 'revenue',
         ]
         read_only_fields = [
             'capacite', 'prix', 'is_valide', 'motif_refus',
             'created_at', 'updated_at', 'organisateur',
         ]
+
+    def get_vues(self, obj):
+        return obj.vues_count
+
+    def get_inscriptions(self, obj):
+        return obj.inscriptions_count
+
+    def get_revenue(self, obj):
+        """Revenue exposé uniquement à l'organisateur ou à l'admin."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        if request.user.role == 'admin' or obj.organisateur_id == request.user.id:
+            return float(obj.revenue_total)
+        return None
 
     def get_completion_percentage(self, obj):
         if not obj.pk:
@@ -283,3 +326,101 @@ class EventDetailSerializer(serializers.ModelSerializer):
             instance.update_capacite_et_prix()
 
         return instance
+
+
+# ============================================================
+# RÉSERVATIONS
+# ============================================================
+
+class ReservationItemReadSerializer(serializers.ModelSerializer):
+    type_billet_nom = serializers.CharField(source='type_billet.nom', read_only=True)
+    sous_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = ReservationItem
+        fields = ['id', 'type_billet', 'type_billet_nom', 'quantite', 'prix_unitaire', 'sous_total']
+
+
+class ReservationItemCreateSerializer(serializers.Serializer):
+    type_billet = serializers.IntegerField()
+    quantite = serializers.IntegerField(min_value=1, max_value=20)
+
+
+class ReservationReadSerializer(serializers.ModelSerializer):
+    event = EventListSerializer(read_only=True)
+    items = ReservationItemReadSerializer(many=True, read_only=True)
+    total_places = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'id', 'code_reference', 'statut', 'total_prix', 'total_places',
+            'date_reservation', 'date_annulation', 'motif_annulation',
+            'event', 'items',
+        ]
+
+
+class ReservationCreateSerializer(serializers.Serializer):
+    event_id = serializers.IntegerField()
+    items = ReservationItemCreateSerializer(many=True)
+
+    def validate(self, attrs):
+        try:
+            event = Event.objects.get(pk=attrs['event_id'])
+        except Event.DoesNotExist:
+            raise serializers.ValidationError({'event_id': 'Événement introuvable.'})
+
+        if event.statut != 'publie':
+            raise serializers.ValidationError({'event_id': "Cet événement n'est pas ouvert à la réservation."})
+
+        items = attrs.get('items', [])
+        if not items:
+            raise serializers.ValidationError({'items': 'Au moins un billet est requis.'})
+
+        total_prix = Decimal('0')
+        errors = []
+        for item in items:
+            try:
+                tb = TypeBillet.objects.get(pk=item['type_billet'])
+            except TypeBillet.DoesNotExist:
+                errors.append(f"Type de billet {item['type_billet']} introuvable.")
+                continue
+            if tb.event_id != event.id:
+                errors.append(f"Le billet {tb.nom} n'appartient pas à cet événement.")
+                continue
+            if item['quantite'] > tb.places_restantes:
+                errors.append(f"Il ne reste que {tb.places_restantes} place(s) pour {tb.nom}.")
+                continue
+            total_prix += tb.prix * item['quantite']
+
+        if errors:
+            raise serializers.ValidationError({'items': errors})
+
+        attrs['_event'] = event
+        attrs['_total_prix'] = total_prix
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        event = validated_data['_event']
+        total_prix = validated_data['_total_prix']
+        items_data = validated_data['items']
+
+        reservation = Reservation.objects.create(
+            user=user,
+            event=event,
+            total_prix=total_prix,
+            statut='confirmee',
+        )
+        for item in items_data:
+            tb = TypeBillet.objects.get(pk=item['type_billet'])
+            ReservationItem.objects.create(
+                reservation=reservation,
+                type_billet=tb,
+                quantite=item['quantite'],
+                prix_unitaire=tb.prix,
+            )
+        return reservation
+
+    def to_representation(self, instance):
+        return ReservationReadSerializer(instance, context=self.context).data
