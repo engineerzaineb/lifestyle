@@ -221,3 +221,35 @@ class DemandeOrganisateurReadSerializer(serializers.ModelSerializer):
 
     def get_categories_prevues_noms(self, obj):
         return [c.nom for c in obj.categories_prevues.all()]
+    
+# === ADMINISTRATION DES UTILISATEURS ===
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Vue admin d'un utilisateur, avec compteurs d'activité."""
+    nom_complet = serializers.SerializerMethodField()
+    nb_events = serializers.SerializerMethodField()
+    nb_reservations = serializers.SerializerMethodField()
+    demande_statut = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'nom', 'prenom', 'nom_complet',
+            'telephone', 'ville', 'role', 'is_organisateur',
+            'is_active', 'created_at',
+            'nb_events', 'nb_reservations', 'demande_statut',
+        ]
+        read_only_fields = fields
+
+    def get_nom_complet(self, obj):
+        return f"{obj.prenom} {obj.nom}".strip() or obj.email
+
+    def get_nb_events(self, obj):
+        return obj.evenements_organises.count()
+
+    def get_nb_reservations(self, obj):
+        return obj.reservations.filter(statut='confirmee').count()
+
+    def get_demande_statut(self, obj):
+        demande = getattr(obj, 'demande_organisateur', None)
+        return demande.statut if demande else None

@@ -18,6 +18,12 @@ from .views_organisateur import (
     AdminValiderDemandeView,
     AdminRefuserDemandeView,
 )
+from .views_admin import (
+    AdminUsersListView,
+    AdminUserToggleActiveView,
+    AdminUserToggleOrganisateurView,
+    AdminStatsView,
+)
 
 
 urlpatterns = [
@@ -44,4 +50,9 @@ urlpatterns = [
     path('admin/demandes-organisateur/<int:pk>/', AdminDemandeDetailView.as_view(), name='admin-demande-detail'),
     path('admin/demandes-organisateur/<int:pk>/valider/', AdminValiderDemandeView.as_view(), name='admin-demande-valider'),
     path('admin/demandes-organisateur/<int:pk>/refuser/', AdminRefuserDemandeView.as_view(), name='admin-demande-refuser'),
+    # === Administration : utilisateurs et stats ===
+    path('admin/users/', AdminUsersListView.as_view(), name='admin-users-list'),
+    path('admin/users/<int:pk>/toggle-active/', AdminUserToggleActiveView.as_view(), name='admin-user-toggle-active'),
+    path('admin/users/<int:pk>/toggle-organisateur/', AdminUserToggleOrganisateurView.as_view(), name='admin-user-toggle-organisateur'),
+    path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
 ]

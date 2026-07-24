@@ -5,10 +5,21 @@ from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationI
 
 
 class CategorieSerializer(serializers.ModelSerializer):
+    nb_events = serializers.SerializerMethodField()
+    proposee_par_email = serializers.CharField(
+        source='proposee_par.email', read_only=True, default=None
+    )
+
     class Meta:
         model = Categorie
-        fields = ['id', 'nom', 'slug', 'icone', 'couleur', 'is_validee']
-        read_only_fields = ['slug', 'is_validee']
+        fields = [
+            'id', 'nom', 'slug', 'icone', 'couleur',
+            'is_validee', 'nb_events', 'proposee_par_email', 'created_at',
+        ]
+        read_only_fields = ['slug', 'nb_events', 'proposee_par_email', 'created_at']
+
+    def get_nb_events(self, obj):
+        return obj.evenements.count()
 
 
 class TagSerializer(serializers.ModelSerializer):

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
 
@@ -44,6 +44,8 @@ import AdminOverview from "./pages/Admin/AdminOverview";
 import AdminDemandes from "./pages/Admin/AdminDemandes";
 import AdminRoute from "./components/AdminRoute/AdminRoute";
 import AdminEvents from "./pages/Admin/AdminEvents";
+import AdminUsers from "./pages/Admin/AdminUsers";
+import AdminCategories from "./pages/Admin/AdminCategories";
 
 import "./App.css";
 
@@ -63,6 +65,9 @@ export default function App() {
 
 function AppContent() {
   const { user } = useAuth();
+  const location = useLocation();
+  const isAdminArea = location.pathname.startsWith("/admin");
+
 
   const handleLogout = () => {
     window.location.href = "/logout";
@@ -70,7 +75,7 @@ function AppContent() {
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} />
+      {!isAdminArea && <Navbar user={user} onLogout={handleLogout} />}
       <main>
         <Routes>
           <Route path="/" element={<HomeRouter />} />
@@ -135,8 +140,8 @@ function AppContent() {
             <Route index element={<AdminOverview />} />
             <Route path="demandes" element={<AdminDemandes />} />
             <Route path="events" element={<AdminEvents />} />
-            <Route path="users" element={<Placeholder name="Gestion utilisateurs" />} />
-            <Route path="categories" element={<Placeholder name="Gestion catégories" />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="categories" element={<AdminCategories />} />
           </Route>
 
           {/* LEGAL & ENTREPRISE */}
@@ -154,7 +159,7 @@ function AppContent() {
           <Route path="*" element={<Placeholder name="Page introuvable (404)" />} />
         </Routes>
       </main>
-      <Footer />
+      {!isAdminArea && <Footer />}
       
     </>
   );

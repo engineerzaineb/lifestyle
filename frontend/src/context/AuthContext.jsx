@@ -67,6 +67,9 @@ export function AuthProvider({ children }) {
   const autoUpdateLocation = (userData) => {
     if (!navigator.geolocation) return;
 
+    // Un admin n'a aucun usage de sa position : ni recommandations, ni boost ville.
+    if (userData?.role === "admin") return;
+
     // Vérifier si l'utilisateur a déjà une position récente
     const lastUpdate = userData?.last_location_update;
     if (lastUpdate) {
@@ -84,12 +87,13 @@ export function AuthProvider({ children }) {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          await updateLocation({
+          const updated = await updateLocation({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
             source: "login",
           });
-          console.log("📍 Position mise à jour automatiquement");
+          // Synchronise le user local pour que le cache d'1h soit effectif
+          if (updated) updateUser(updated);
         } catch (err) {
           console.warn("Impossible de mettre à jour la position :", err.message);
         }

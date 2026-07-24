@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Inbox, Calendar, Users, Tag, ArrowLeft, Shield,
+  LayoutDashboard, Inbox, Calendar, Users, Tag, ArrowLeft, Shield, LogOut,
 } from "lucide-react";
+import { useAuth } from "../../context/useAuth";
 import styles from "./AdminLayout.module.css";
 
 const MENU_ITEMS = [
@@ -14,6 +15,12 @@ const MENU_ITEMS = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Initiales pour l'avatar (repli sur la 1re lettre de l'email)
+  const initials =
+    `${(user?.prenom || "")[0] || ""}${(user?.nom || "")[0] || ""}`.toUpperCase()
+    || (user?.email || "A")[0].toUpperCase();
 
   return (
     <div className={styles.layout}>
@@ -48,10 +55,31 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        <button onClick={() => navigate("/home")} className={styles.backBtn}>
-          <ArrowLeft size={16} />
-          Retour à l'application
-        </button>
+        {/* Pied de sidebar : identité + sorties */}
+        <div className={styles.sidebarFooter}>
+          <div className={styles.userBox}>
+            <div className={styles.userAvatar}>{initials}</div>
+            <div className={styles.userInfo}>
+              <p className={styles.userName}>
+                {user?.prenom} {user?.nom}
+              </p>
+              <p className={styles.userRole}>Administrateur</p>
+            </div>
+          </div>
+
+          <button onClick={() => navigate("/home")} className={styles.backBtn}>
+            <ArrowLeft size={16} />
+            Retour à l'application
+          </button>
+
+          <button
+            onClick={() => navigate("/logout")}
+            className={styles.logoutBtn}
+          >
+            <LogOut size={16} />
+            Déconnexion
+          </button>
+        </div>
       </aside>
 
       {/* Zone de contenu */}

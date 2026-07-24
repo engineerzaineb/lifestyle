@@ -35,6 +35,10 @@ def strip_accents(text):
     return text.translate(_ACCENTS) if text else text
 
 
+# ============================================================
+# PERMISSIONS
+# ============================================================
+
 # Permission : lecture pour tous, écriture pour organisateur/admin
 # OU user avec demande en_attente (pour les brouillons uniquement)
 class IsOrganisateurOrReadOnly(permissions.BasePermission):
@@ -74,6 +78,22 @@ class IsOrganisateurOrReadOnly(permissions.BasePermission):
             return False
         return True
 
+
+# Permission : réservé aux utilisateurs dont le rôle est 'admin'.
+# Volontairement définie ici plutôt qu'importée de users, pour éviter
+# un import circulaire entre les deux applications.
+class IsAdminRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == 'admin'
+        )
+
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 # Filtre par période (today, weekend, month)
 def apply_date_filter(qs, period):
@@ -154,6 +174,9 @@ def build_interets_pattern(noms):
     return r'(' + '|'.join(re.escape(n) for n in noms) + r')'
 
 
+# ============================================================
+# ViewSet pour les événements
+# ============================================================
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     permission_classes = [IsOrganisateurOrReadOnly]
@@ -170,8 +193,6 @@ class EventViewSet(viewsets.ModelViewSet):
                           .prefetch_related('tags', 'types_billets')
         user = self.request.user
         params = self.request.query_params
-
-        # === FILTRES ===
 
         # === RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) ===
         # - min 2 caractères
@@ -818,42 +839,87 @@ class EventViewSet(viewsets.ModelViewSet):
         return Response({'status': 'refusé', 'motif': event.motif_refus})
 
 
+# ============================================================
 # ViewSet pour les catégories
-class CategorieViewSet(viewsets.ReadOnlyModelViewSet):
+# Lecture publique, écriture réservée aux administrateurs.
+# ============================================================
+class CategorieViewSet(viewsets.ModelViewSet):
     serializer_class = CategorieSerializer
-    permission_classes = [permissions.AllowAny]
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
+        return [IsAdminRole()]
 
     def get_queryset(self):
         user = self.request.user
+        qs = Categorie.objects.all().order_by('nom')
         if user.is_authenticated and user.role == 'admin':
-            return Categorie.objects.all()
-        return Categorie.objects.filter(is_validee=True)
+            statut = self.request.query_params.get('statut')
+            if statut == 'validee':
+                qs = qs.filter(is_validee=True)
+            elif statut == 'en_attente':
+                qs = qs.filter(is_validee=False)
+            return qs
+        return qs.filter(is_validee=True)
 
-    @action(
-        detail=False,
-        methods=['get'],
-        url_path='en-attente',
-        permission_classes=[permissions.IsAdminUser]
-    )
+    def perform_create(self, serializer):
+        # Une catégorie créée par un admin est validée d'office
+        serializer.save(is_validee=True, proposee_par=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        categorie = self.get_object()
+        if categorie.evenements.exists():
+            return Response(
+                {'detail': f"Impossible de supprimer : {categorie.evenements.count()} "
+                           f"événement(s) utilisent cette catégorie."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+        categorie = self.get_object()
+        if categorie.evenements.exists():
+            return Response(
+                {'detail': f"Impossible de supprimer : {categorie.evenements.count()} "
+                           f"événement(s) utilisent cette catégorie."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    # GET /api/categories/en-attente/
+    @action(detail=False, methods=['get'], url_path='en-attente')
     def en_attente(self, request):
-        cats = Categorie.objects.filter(is_validee=False)
+        cats = Categorie.objects.filter(is_validee=False).order_by('-created_at')
         serializer = self.get_serializer(cats, many=True)
         return Response(serializer.data)
 
-    @action(
-        detail=True,
-        methods=['post'],
-        url_path='valider',
-        permission_classes=[permissions.IsAdminUser]
-    )
+    # POST /api/categories/{id}/valider/
+    @action(detail=True, methods=['post'], url_path='valider')
     def valider(self, request, pk=None):
         cat = self.get_object()
         cat.is_validee = True
-        cat.save()
-        return Response({'status': 'validée'})
+        cat.save(update_fields=['is_validee'])
+        return Response(self.get_serializer(cat).data)
+
+    # POST /api/categories/{id}/refuser/
+    @action(detail=True, methods=['post'], url_path='refuser')
+    def refuser(self, request, pk=None):
+        """Refuse une proposition. Supprime si inutilisée, sinon la garde
+        masquée pour ne pas casser les événements existants."""
+        cat = self.get_object()
+        if cat.evenements.exists():
+            cat.is_validee = False
+            cat.save(update_fields=['is_validee'])
+            return Response({
+                'detail': "Catégorie masquée (des événements l'utilisent).",
+                'deleted': False,
+            })
+        cat.delete()
+        return Response({'detail': 'Proposition supprimée.', 'deleted': True})
 
 
+# ============================================================
 # ViewSet pour les tags
+# ============================================================
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
