@@ -1,10 +1,12 @@
+import re
 from datetime import timedelta, datetime, time
-from rest_framework import viewsets, permissions, filters, status
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from django.db.models import Q, F, Case, When, BooleanField, Value, Exists, OuterRef
+from django.db.models import Q, F, Exists, OuterRef
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
@@ -19,6 +21,18 @@ MOIS_FR = {
     'mai': 5, 'juin': 6, 'juillet': 7, 'aout': 8, 'août': 8,
     'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12, 'décembre': 12,
 }
+
+
+# Folding d'accents (utilisé pour la détection de mois : "août" == "aout")
+_ACCENTS = str.maketrans(
+    'àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ',
+    'aaaeeeeiioouuucAAAEEEEIIOOUUUC'
+)
+
+
+def strip_accents(text):
+    """'théâtre' -> 'theatre'. O(n), aucune dépendance externe."""
+    return text.translate(_ACCENTS) if text else text
 
 
 # Permission : lecture pour tous, écriture pour organisateur/admin
@@ -88,56 +102,63 @@ def apply_date_filter(qs, period):
     return qs
 
 
-# Détecte un ou plusieurs mois dans la requête (match dès la 1ère lettre)
+# Détecte un mois dans la requête.
+# Règles : mot d'au moins 3 lettres ET (mot complet OU préfixe désignant
+# au plus 2 mois — "jui" -> juin+juillet est acceptable, "ma" -> non).
 def detect_months_in_query(query):
     if not query:
         return []
 
-    query_lower = query.lower().strip()
-    if not query_lower:
-        return []
-
-    words = query_lower.split()
+    words = strip_accents(query.lower().strip()).split()
+    mois_ascii = {strip_accents(k): v for k, v in MOIS_FR.items()}
     matching_months = set()
 
     for word in words:
-        if not word:
+        if len(word) < 3:
             continue
-        for nom_mois, num_mois in MOIS_FR.items():
-            if nom_mois.startswith(word):
-                matching_months.add(num_mois)
+        # Mois exact ("mars", "aout")
+        if word in mois_ascii:
+            matching_months.add(mois_ascii[word])
+            continue
+        # Préfixe : accepté seulement s'il désigne au plus 2 mois
+        candidates = {v for k, v in mois_ascii.items() if k.startswith(word)}
+        if 0 < len(candidates) <= 2:
+            matching_months.update(candidates)
 
     return sorted(matching_months)
 
 
-# Retire les mots qui correspondent à un préfixe de mois
+# Retire les mots identifiés comme mois (mêmes règles que detect_months_in_query)
 def remove_months_from_query(query):
     if not query:
         return query
 
-    result = query.lower().strip()
-    words = result.split()
+    mois_ascii = set(strip_accents(k) for k in MOIS_FR.keys())
+    filtered = []
 
-    filtered_words = []
-    for word in words:
-        is_month = False
-        if word:
-            for nom_mois in MOIS_FR.keys():
-                if nom_mois.startswith(word):
-                    is_month = True
-                    break
+    for word in query.lower().strip().split():
+        w = strip_accents(word)
+        is_month = len(w) >= 3 and (
+            w in mois_ascii
+            or 0 < len({m for m in mois_ascii if m.startswith(w)}) <= 2
+        )
         if not is_month:
-            filtered_words.append(word)
+            filtered.append(word)
 
-    return ' '.join(filtered_words).strip()
+    return ' '.join(filtered).strip()
+
+
+# Construit un pattern regex sûr à partir de noms d'intérêts saisis par les users.
+# re.escape() évite qu'un intérêt type "Rock (live)" ou "C++" casse la requête.
+def build_interets_pattern(noms):
+    return r'(' + '|'.join(re.escape(n) for n in noms) + r')'
 
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     permission_classes = [IsOrganisateurOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['statut']
-    search_fields = ['titre', 'description', 'lieu', 'ville']
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -152,40 +173,46 @@ class EventViewSet(viewsets.ModelViewSet):
 
         # === FILTRES ===
 
-        # Recherche textuelle avec détection de mois en français
-        # Comportement : cherche dans texte ET dans les mois (OR)
-        q = params.get('q')
-        if q:
+        # === RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) ===
+        # - min 2 caractères
+        # - mois détecté en AND avec le texte ("concert juillet" = concerts DE juillet)
+        # - stemming français : "festivals" trouve "festival"
+        # - insensible aux accents dans les deux sens
+        q = (params.get('q') or '').strip()
+        self._search_active = False
+
+        if len(q) >= 2:
             mois_list = detect_months_in_query(q)
-            q_sans_mois = remove_months_from_query(q)
+            q_texte = remove_months_from_query(q)
 
-            query_filters = Q()
-
-            if q_sans_mois:
-                query_filters |= (
-                    Q(titre__icontains=q_sans_mois) |
-                    Q(description__icontains=q_sans_mois) |
-                    Q(lieu__icontains=q_sans_mois) |
-                    Q(ville__icontains=q_sans_mois) |
-                    Q(tags__nom__icontains=q_sans_mois) |
-                    Q(categorie__nom__icontains=q_sans_mois)
+            if len(q_texte) >= 2:
+                # Vecteur pondéré : titre (A) > ville/lieu/catégorie (B) > description (C)
+                vector = (
+                    SearchVector('titre', weight='A', config='french')
+                    + SearchVector('ville', weight='B', config='french')
+                    + SearchVector('lieu', weight='B', config='french')
+                    + SearchVector('categorie__nom', weight='B', config='french')
+                    + SearchVector('description', weight='C', config='french')
                 )
+                search_query = SearchQuery(q_texte, config='french', search_type='websearch')
+
+                qs = qs.annotate(
+                    search_rank=SearchRank(vector, search_query)
+                ).filter(
+                    # full-text OU sous-chaîne sans accents (rattrape les noms propres
+                    # et les recherches partielles que le stemming ne couvre pas)
+                    Q(search_rank__gt=0)
+                    | Q(titre__unaccent__icontains=q_texte)
+                    | Q(ville__unaccent__icontains=q_texte)
+                    | Q(lieu__unaccent__icontains=q_texte)
+                    | Q(tags__nom__unaccent__icontains=q_texte)
+                    | Q(categorie__nom__unaccent__icontains=q_texte)
+                ).distinct()
+
+                self._search_active = True
 
             if mois_list:
-                query_filters |= Q(date_evenement__month__in=mois_list)
-
-            if q.strip() and not q_sans_mois:
-                query_filters |= (
-                    Q(titre__icontains=q) |
-                    Q(description__icontains=q) |
-                    Q(lieu__icontains=q) |
-                    Q(ville__icontains=q) |
-                    Q(tags__nom__icontains=q) |
-                    Q(categorie__nom__icontains=q)
-                )
-
-            if query_filters:
-                qs = qs.filter(query_filters).distinct()
+                qs = qs.filter(date_evenement__month__in=mois_list)
 
         # Multi-catégories
         categorie = params.get('categorie')
@@ -286,16 +313,19 @@ class EventViewSet(viewsets.ModelViewSet):
         elif sort == 'popular':
             qs = qs.order_by(F('capacite').desc(nulls_last=True), '-created_at')
         else:
-            # Pertinence par défaut : bons plans en premier + date proche
-            bon_plan_subquery = TypeBillet.objects.filter(
-                event=OuterRef('pk'), is_bon_plan=True
-            )
-            qs = qs.annotate(
-                has_bon_plan_annot=Exists(bon_plan_subquery),
-            ).order_by(
-                '-has_bon_plan_annot',
-                'date_evenement',
-            )
+            # Pertinence : score du match si recherche active, sinon bons plans + date
+            if getattr(self, '_search_active', False):
+                qs = qs.order_by('-search_rank', 'date_evenement')
+            else:
+                bon_plan_subquery = TypeBillet.objects.filter(
+                    event=OuterRef('pk'), is_bon_plan=True
+                )
+                qs = qs.annotate(
+                    has_bon_plan_annot=Exists(bon_plan_subquery),
+                ).order_by(
+                    '-has_bon_plan_annot',
+                    'date_evenement',
+                )
 
         return qs
 
@@ -335,7 +365,7 @@ class EventViewSet(viewsets.ModelViewSet):
          .prefetch_related('tags', 'types_billets')
 
         if user_interets_noms:
-            pattern = r'(' + '|'.join(user_interets_noms) + r')'
+            pattern = build_interets_pattern(user_interets_noms)
             recommended = base_qs.filter(categorie__nom__iregex=pattern)
             if not recommended.exists() and user.ville:
                 recommended = base_qs.filter(ville__iexact=user.ville)
@@ -357,6 +387,7 @@ class EventViewSet(viewsets.ModelViewSet):
         results = results[:20]
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
+
     # POST /api/events/{id}/track-view/
     # Enregistre une vue (anonyme ou authentifié). Déduplique si même user < 1h.
     @action(
@@ -413,7 +444,7 @@ class EventViewSet(viewsets.ModelViewSet):
          .prefetch_related('tags', 'types_billets')
 
         if user_interets_noms:
-            pattern = r'(' + '|'.join(user_interets_noms) + r')'
+            pattern = build_interets_pattern(user_interets_noms)
             decouvertes = base_qs.exclude(categorie__nom__iregex=pattern)
         else:
             decouvertes = base_qs
@@ -515,6 +546,111 @@ class EventViewSet(viewsets.ModelViewSet):
         results = list(similar[:6])
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
+
+    # GET /api/events/stats-organisateur/
+    # Stats agrégées + deltas période sur période, pour le dashboard organisateur.
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='stats-organisateur',
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def stats_organisateur(self, request):
+        from decimal import Decimal
+        from django.db.models import Sum
+
+        user = request.user
+        if not (user.is_organisateur or user.role == 'admin'):
+            return Response(
+                {'detail': "Réservé aux organisateurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        two_weeks_ago = now - timedelta(days=14)
+        month_ago = now - timedelta(days=30)
+        two_months_ago = now - timedelta(days=60)
+
+        def pct_delta(current, previous):
+            """Variation en % entre deux périodes. 0 -> quelque chose = +100%."""
+            current, previous = float(current), float(previous)
+            if previous == 0:
+                return 100 if current > 0 else 0
+            return round(((current - previous) / previous) * 100)
+
+        mes_events = Event.objects.filter(organisateur=user)
+        event_ids = list(mes_events.values_list('id', flat=True))
+        published_ids = list(
+            mes_events.filter(statut='publie').values_list('id', flat=True)
+        )
+
+        # === VUES (semaine vs semaine précédente) ===
+        views_qs = EventView.objects.filter(event_id__in=event_ids)
+        total_views = views_qs.count()
+        views_w1 = views_qs.filter(viewed_at__gte=week_ago).count()
+        views_w0 = views_qs.filter(
+            viewed_at__gte=two_weeks_ago, viewed_at__lt=week_ago
+        ).count()
+
+        # === RÉSERVATIONS CONFIRMÉES ===
+        resa_qs = Reservation.objects.filter(
+            event_id__in=event_ids, statut='confirmee'
+        )
+
+        def places(qs):
+            return qs.aggregate(t=Sum('items__quantite'))['t'] or 0
+
+        def revenue(qs):
+            return qs.aggregate(t=Sum('total_prix'))['t'] or Decimal('0')
+
+        total_places = places(resa_qs)
+        places_w1 = places(resa_qs.filter(date_reservation__gte=week_ago))
+        places_w0 = places(resa_qs.filter(
+            date_reservation__gte=two_weeks_ago, date_reservation__lt=week_ago
+        ))
+
+        # === REVENUS (mois vs mois précédent) ===
+        total_revenue = revenue(resa_qs)
+        rev_m1 = revenue(resa_qs.filter(date_reservation__gte=month_ago))
+        rev_m0 = revenue(resa_qs.filter(
+            date_reservation__gte=two_months_ago, date_reservation__lt=month_ago
+        ))
+
+        # === TAUX DE REMPLISSAGE (sur les events publiés uniquement) ===
+        published = mes_events.filter(statut='publie')
+        total_capacite = sum(e.capacite_totale or 0 for e in published)
+
+        resa_pub = resa_qs.filter(event_id__in=published_ids)
+        places_pub_now = places(resa_pub)
+        places_pub_before = places(resa_pub.filter(date_reservation__lt=month_ago))
+
+        if total_capacite:
+            fill_now = round((places_pub_now / total_capacite) * 100)
+            fill_before = round((places_pub_before / total_capacite) * 100)
+        else:
+            fill_now = fill_before = 0
+
+        return Response({
+            'views': {
+                'value': total_views,
+                'delta': pct_delta(views_w1, views_w0),
+            },
+            'inscriptions': {
+                'value': total_places,
+                'total': total_capacite,
+                'delta': pct_delta(places_w1, places_w0),
+            },
+            'revenue': {
+                'value': float(total_revenue),
+                'delta': pct_delta(rev_m1, rev_m0),
+            },
+            'fillRate': {
+                # delta en points de pourcentage (pas en %)
+                'value': fill_now,
+                'delta': fill_now - fill_before,
+            },
+        })
 
     # POST /api/events/{id}/duplicate/
     # Crée une copie d'un événement (en brouillon, date remise à blanc)
@@ -722,6 +858,8 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [permissions.AllowAny]
+
+
 # ============================================================
 # ViewSet pour les réservations
 # ============================================================
