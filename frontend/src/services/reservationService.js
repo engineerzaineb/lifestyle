@@ -1,6 +1,26 @@
 import api from "./api";
 
 const USE_MOCK = false;
+/**
+ * Normalise une réservation du backend vers la forme attendue par les composants.
+ * Backend : code_reference / total_prix / items[].quantite / "annulee" / date_annulation
+ * Front   : code / total / items[].quantity / "annule" / cancelled_at
+ */
+function normalizeReservation(r) {
+  if (!r) return r;
+  return {
+    ...r,
+    code: r.code_reference,
+    total: parseFloat(r.total_prix) || 0,
+    statut: r.statut === "annulee" ? "annule" : r.statut,
+    cancelled_at: r.date_annulation,
+    items: (r.items || []).map((it) => ({
+      ...it,
+      quantity: it.quantite,
+    })),
+    event: r.event ? { ...r.event, cover: r.event.image_url } : r.event,
+  };
+}
 /*récupere toutes les réservations de l'utilisateur connecté*/
 export async function fetchMyReservations() {
   if (USE_MOCK) {
@@ -11,7 +31,8 @@ export async function fetchMyReservations() {
   const { data } = await api.get("/reservations/mes-reservations/");
   // Le backend renvoie soit un tableau direct (action mes-reservations),
   // soit un objet paginé { results: [...] }. On gère les deux.
-  return Array.isArray(data) ? data : (data.results || []);
+  const list = Array.isArray(data) ? data : (data.results || []);
+  return list.map(normalizeReservation);
 }
 
 /*récupere une réservation par ID*/
@@ -23,7 +44,7 @@ export async function fetchReservation(id) {
   }
 
   const { data } = await api.get(`/reservations/${id}/`);
-  return data;
+  return normalizeReservation(data);
 }
 
 

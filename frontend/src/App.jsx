@@ -29,7 +29,7 @@ import HomeUser from "./pages/HomeUser/HomeUser";
 import MyReservations from "./pages/MyReservations/MyReservations";
 import DevenirOrganisateur from "./pages/DevenirOrganisateur/DevenirOrganisateur";
 
-//import Booking from "./pages/Booking/Booking";
+import Booking from "./pages/Booking/Booking";
 
 // Pages organisateur
 import HomeOrganizer from "./pages/HomeOrganizer/HomeOrganizer";
@@ -95,9 +95,9 @@ function AppContent() {
           <Route path="/my-reservations" element={
             <ProtectedRoute><MyReservations /></ProtectedRoute>
           } />
-          {/*<Route path="/booking/:id" element={
+          {<Route path="/booking/:id" element={
             <ProtectedRoute><Booking /></ProtectedRoute>
-          } />*/}
+          } />}
           <Route path="/profile" element={
             <ProtectedRoute><Profile /></ProtectedRoute>
           } />
