@@ -28,6 +28,8 @@ import Profile from "./pages/Profile/Profile";
 import HomeUser from "./pages/HomeUser/HomeUser";
 import MyReservations from "./pages/MyReservations/MyReservations";
 import DevenirOrganisateur from "./pages/DevenirOrganisateur/DevenirOrganisateur";
+import ForgotPassword from "./pages/ForgotPassword/ForgotPassword";
+import ResetPassword from "./pages/ForgotPassword/ResetPassword";
 
 import Booking from "./pages/Booking/Booking";
 
@@ -82,7 +84,8 @@ function AppContent() {
           <Route path="/login" element={<RedirectIfAuth><Login /></RedirectIfAuth>} />
           <Route path="/register" element={<RedirectIfAuth><Register /></RedirectIfAuth>} />
           <Route path="/logout" element={<Logout />} />
-          <Route path="/forgot-password" element={<Placeholder name="Mot de passe oublié" />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
           <Route path="/discover" element={<Placeholder name="Découvrir" />} />
           <Route path="/search" element={<Search />} />
           <Route path="/contact" element={<Placeholder name="Contact" />} />

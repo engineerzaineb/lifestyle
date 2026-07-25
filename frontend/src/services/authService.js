@@ -171,6 +171,39 @@ export async function requestPasswordReset(email) {
     return { detail: "Email envoyé" };
   }
 
-  const { data } = await api.post("/auth/password/reset/", { email });
+  const { data } = await api.post("/auth/password-reset/", { email });
+  return data;
+}
+/**
+ * Met à jour le profil de l'utilisateur connecté
+ * @param {object} payload - { nom, prenom, telephone, ville }
+ * @returns le profil complet mis à jour
+ */
+export async function updateProfile(payload) {
+  const { data } = await api.patch("/auth/me/", payload);
+  return data;
+}
+
+/**
+ * Change le mot de passe de l'utilisateur connecté
+ * @param {string} oldPassword - mot de passe actuel
+ * @param {string} newPassword - nouveau mot de passe
+ */
+export async function changePassword(oldPassword, newPassword) {
+  const { data } = await api.post("/auth/me/password/", {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+  return data;
+}
+
+
+/** Applique le nouveau mot de passe à partir du lien reçu par email */
+export async function confirmPasswordReset(uid, token, newPassword) {
+  const { data } = await api.post("/auth/password-reset/confirm/", {
+    uid,
+    token,
+    new_password: newPassword,
+  });
   return data;
 }

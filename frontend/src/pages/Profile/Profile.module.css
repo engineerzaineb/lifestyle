@@ -337,3 +337,333 @@
 .organizerCheckIcon {
   color: #16A34A;
 }
+
+/* ============================================================
+   À COLLER À LA FIN DE Profile.module.css
+   (les classes existantes ne sont pas modifiées)
+   ============================================================ */
+
+/* ===== MENTION "NON MODIFIABLE" ===== */
+
+.infoNote {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-surface-alt, #f3f4f6);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+/* ===== FORMULAIRE D'ÉDITION ===== */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.form .formField {
+  margin-bottom: 0;
+}
+
+.formLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text, #1f2937);
+}
+
+.formInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text, #1f2937);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: var(--color-primary, #4f46e5);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.formInputError {
+  border-color: #dc2626;
+}
+
+.formInputError:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.formErrorText {
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 6px;
+}
+
+.btnCancel {
+  padding: 9px 17px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnCancel:hover:not(:disabled) {
+  background: var(--color-surface-alt, #f3f4f6);
+  color: var(--color-text, #1f2937);
+}
+
+.btnSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 19px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary, #4f46e5),
+    var(--color-pink, #ec4899)
+  );
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btnSave:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btnCancel:disabled,
+.btnSave:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ===== LOCALISATION ===== */
+
+.locationBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  padding: 4px 11px;
+  border: 1px solid var(--color-primary, #4f46e5);
+  border-radius: 999px;
+  background: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-primary, #4f46e5);
+  cursor: pointer;
+  transition: background 0.2s;
+  vertical-align: middle;
+}
+
+.locationBtn:hover:not(:disabled) {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.locationBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.locationHint {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+/* ===== CARTE SÉCURITÉ ===== */
+
+.securityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0 2px;
+}
+
+.securityLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #1f2937);
+  margin: 0 0 2px;
+}
+
+.securityHint {
+  font-size: 12.5px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+/* ===== MODALE MOT DE PASSE ===== */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  animation: profileFadeIn 0.18s ease-out;
+}
+
+@keyframes profileFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  animation: profileSlideUp 0.22s ease-out;
+}
+
+@keyframes profileSlideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.modalHeader h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text, #1f2937);
+  margin: 0;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.modalClose:hover {
+  background: var(--color-surface-alt, #f3f4f6);
+  color: var(--color-text, #1f2937);
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.globalError {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: #fef2f2;
+  border-left: 3px solid #dc2626;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  color: #991b1b;
+}
+
+.passwordWrap {
+  position: relative;
+}
+
+.passwordWrap .formInput {
+  padding-right: 40px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 4px;
+}
+
+.passwordToggle:hover {
+  color: var(--color-text, #1f2937);
+}

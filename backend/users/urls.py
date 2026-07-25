@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-
+from .views import MeView, ChangePasswordView
 from .views import (
     RegisterView,
     LogoutView,
@@ -23,8 +23,12 @@ from .views_admin import (
     AdminUserToggleActiveView,
     AdminUserToggleOrganisateurView,
     AdminStatsView,
+    
 )
-
+from .views import (
+    PasswordResetRequestView, 
+    PasswordResetConfirmView,
+)
 
 urlpatterns = [
     # === Auth ===
@@ -35,6 +39,7 @@ urlpatterns = [
 
     # === Utilisateur connecté ===
     path('me/', MeView.as_view(), name='me'),
+    path('me/password/', ChangePasswordView.as_view(), name='change_password'),
     path('me/location/', UpdateLocationView.as_view(), name='update_location'),
     path('me/locations/', MyLocationsView.as_view(), name='my_locations'),
     path('me/interets/', UpdateUserInteretsView.as_view(), name='update_interets'),
@@ -55,4 +60,7 @@ urlpatterns = [
     path('admin/users/<int:pk>/toggle-active/', AdminUserToggleActiveView.as_view(), name='admin-user-toggle-active'),
     path('admin/users/<int:pk>/toggle-organisateur/', AdminUserToggleOrganisateurView.as_view(), name='admin-user-toggle-organisateur'),
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
+    
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]

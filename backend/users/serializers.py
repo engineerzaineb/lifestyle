@@ -3,6 +3,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.password_validation import validate_password
 from .models import User, UserLocation, Interet
 from .models import DemandeOrganisateur
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 
 
 # Serializer pour un centre d'intérêt
@@ -253,3 +256,108 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     def get_demande_statut(self, obj):
         demande = getattr(obj, 'demande_organisateur', None)
         return demande.statut if demande else None
+# === MISE À JOUR DU PROFIL ===
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Champs qu'un utilisateur peut modifier lui-même.
+    Liste blanche stricte : email, role et is_organisateur en sont
+    volontairement exclus (identifiant de connexion et privilèges).
+    """
+    class Meta:
+        model = User
+        fields = ['nom', 'prenom', 'telephone', 'ville']
+        extra_kwargs = {
+            'nom': {'required': False},
+            'prenom': {'required': False},
+            'telephone': {'required': False, 'allow_blank': True},
+            'ville': {'required': False, 'allow_blank': True},
+        }
+
+    def validate_nom(self, value):
+        if value is not None and len(value.strip()) < 2:
+            raise serializers.ValidationError("Le nom doit contenir au moins 2 caractères.")
+        return value.strip()
+
+    def validate_prenom(self, value):
+        if value is not None and len(value.strip()) < 2:
+            raise serializers.ValidationError("Le prénom doit contenir au moins 2 caractères.")
+        return value.strip()
+
+    def validate_telephone(self, value):
+        if not value:
+            return value
+        cleaned = value.replace(' ', '').replace('-', '')
+        if not cleaned.lstrip('+').isdigit():
+            raise serializers.ValidationError("Numéro de téléphone invalide.")
+        return value.strip()
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Changement de mot de passe. L'ancien est exigé pour empêcher
+    la prise de contrôle d'une session laissée ouverte."""
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        validators=[validate_password],
+    )
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Mot de passe actuel incorrect.")
+        return value
+
+    def validate(self, attrs):
+        if attrs['old_password'] == attrs['new_password']:
+            raise serializers.ValidationError({
+                'new_password': "Le nouveau mot de passe doit être différent de l'ancien."
+            })
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user
+# === RÉINITIALISATION DE MOT DE PASSE ===
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Demande d'envoi d'un lien. On ne révèle jamais si l'email existe,
+    pour ne pas transformer ce point d'entrée en annuaire de comptes."""
+    email = serializers.EmailField()
+
+    def get_user(self):
+        return User.objects.filter(
+            email__iexact=self.validated_data['email'], is_active=True
+        ).first()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Applique le nouveau mot de passe si le jeton est valide."""
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(
+        write_only=True, min_length=8, validators=[validate_password]
+    )
+
+    def validate(self, attrs):
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({'uid': "Lien invalide."})
+
+        if not default_token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError({
+                'token': "Ce lien a expiré ou a déjà été utilisé."
+            })
+
+        attrs['_user'] = user
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.validated_data['_user']
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user

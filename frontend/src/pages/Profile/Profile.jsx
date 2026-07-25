@@ -1,22 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Mail, Phone, MapPin, Heart, Edit3, Plus,
   ShieldCheck, Sparkles, Ticket, CheckCircle, AlertCircle,
   Briefcase, Clock, XCircle, ArrowRight, Store,
+  Lock, Save, X, Eye, EyeOff, Navigation, Loader2,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
-import { getCurrentUser, getMyDemandeOrganisateur } from "../../services/authService";
+import {
+  getCurrentUser, getMyDemandeOrganisateur,
+  updateProfile, changePassword, updateLocation,
+} from "../../services/authService";
+import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { VILLES_TUNISIE } from "../../utils/constants";
 import EditInterestsModal from "../../components/EditInterestsModal/EditInterestsModal";
 import styles from "./Profile.module.css";
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
+  const toast = useToastContext();
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [profileData, setProfileData] = useState(user);
   const [demande, setDemande] = useState(null);
   const [loadingDemande, setLoadingDemande] = useState(true);
+
+  // Édition des informations personnelles
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ nom: "", prenom: "", telephone: "", ville: "" });
+  const [formErrors, setFormErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  // Changement de mot de passe
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // Localisation
+  const [locating, setLocating] = useState(false);
+
+  // Ref sur toast : évite de relancer les effets à chaque notification
+  const toastRef = useRef(toast);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
 
   // Recharge les infos fraîches du backend au montage
   useEffect(() => {
@@ -27,10 +51,14 @@ export default function Profile() {
       })
       .catch((err) => console.error("Erreur chargement profil :", err));
 
-    // Charge ma demande d'organisateur
     getMyDemandeOrganisateur()
       .then((data) => setDemande(data))
-      .catch((err) => console.error("Erreur chargement demande :", err))
+      .catch((err) => {
+        // 404 = pas de demande, c'est un cas normal et non une erreur
+        if (err.response?.status !== 404) {
+          console.error("Erreur chargement demande :", err);
+        }
+      })
       .finally(() => setLoadingDemande(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -53,7 +81,6 @@ export default function Profile() {
     admin: styles.roleAdmin,
   }[profileData.role] || styles.roleUser;
 
-  // Si organisateur, on adapte le badge
   let roleLabel = {
     utilisateur: "Utilisateur",
     admin: "Administrateur",
@@ -74,14 +101,109 @@ export default function Profile() {
     updateUser(updatedUser);
   };
 
-  // Format de date FR
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     return new Date(dateStr).toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
+      day: "numeric", month: "long", year: "numeric",
     });
+  };
+
+  // === ÉDITION DU PROFIL ===
+
+  const startEditing = () => {
+    setForm({
+      nom: profileData.nom || "",
+      prenom: profileData.prenom || "",
+      telephone: profileData.telephone || "",
+      ville: profileData.ville || "",
+    });
+    setFormErrors({});
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setFormErrors({});
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (form.prenom.trim().length < 2) errors.prenom = "Au moins 2 caractères";
+    if (form.nom.trim().length < 2) errors.nom = "Au moins 2 caractères";
+    if (form.telephone) {
+      const cleaned = form.telephone.replace(/[\s-]/g, "");
+      if (!/^\+?\d+$/.test(cleaned)) errors.telephone = "Numéro invalide";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
+
+    setSaving(true);
+    try {
+      const updated = await updateProfile({
+        nom: form.nom.trim(),
+        prenom: form.prenom.trim(),
+        telephone: form.telephone.trim(),
+        ville: form.ville,
+      });
+      setProfileData(updated);
+      updateUser(updated);
+      setEditing(false);
+      toast.success("Profil mis à jour");
+    } catch (err) {
+      console.error("Erreur mise à jour profil :", err);
+      const data = err.response?.data;
+      if (data && typeof data === "object") {
+        const fieldErrors = {};
+        Object.entries(data).forEach(([key, val]) => {
+          fieldErrors[key] = Array.isArray(val) ? val[0] : String(val);
+        });
+        setFormErrors(fieldErrors);
+      }
+      toast.error("Impossible d'enregistrer les modifications");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // === LOCALISATION ===
+
+  const handleActivateLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Votre navigateur ne gère pas la géolocalisation");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await updateLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            source: "manual",
+          });
+          const fresh = await getCurrentUser();
+          setProfileData(fresh);
+          updateUser(fresh);
+          toast.success("Position enregistrée");
+        } catch (err) {
+          console.error("Erreur mise à jour position :", err);
+          toast.error("Impossible d'enregistrer la position");
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        console.warn("Géolocalisation refusée :", err.message);
+        toast.warning("Vous avez refusé l'accès à votre position");
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   return (
@@ -103,44 +225,191 @@ export default function Profile() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Informations personnelles</h2>
-          </div>
-
-          <div className={styles.infoRow}>
-            <Mail size={16} className={styles.infoIcon} />
-            <span className={styles.infoLabel}>Email</span>
-            <span className={styles.infoValue}>{profileData.email}</span>
-          </div>
-
-          <div className={styles.infoRow}>
-            <Phone size={16} className={styles.infoIcon} />
-            <span className={styles.infoLabel}>Téléphone</span>
-            <span className={styles.infoValue}>
-              {profileData.telephone || "Non renseigné"}
-            </span>
-          </div>
-
-          <div className={styles.infoRow}>
-            <MapPin size={16} className={styles.infoIcon} />
-            <span className={styles.infoLabel}>Ville</span>
-            <span className={styles.infoValue}>
-              {profileData.ville || "Non renseignée"}
-            </span>
-          </div>
-
-          <div className={styles.infoRow}>
-            <MapPin size={16} className={styles.infoIcon} />
-            <span className={styles.infoLabel}>Localisation</span>
-            {profileData.has_location ? (
-              <span className={`${styles.locationStatus} ${styles.locationOn}`}>
-                <CheckCircle size={12} />
-                Activée
-              </span>
-            ) : (
-              <span className={`${styles.locationStatus} ${styles.locationOff}`}>
-                <AlertCircle size={12} />
-                Non activée
-              </span>
+            {!editing && (
+              <button
+                type="button"
+                onClick={startEditing}
+                className={styles.editBtn}
+              >
+                <Edit3 size={13} />
+                Modifier
+              </button>
             )}
+          </div>
+
+          {editing ? (
+            /* --- MODE ÉDITION --- */
+            <div className={styles.form}>
+              <div className={styles.formRow}>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>Prénom</label>
+                  <input
+                    type="text"
+                    value={form.prenom}
+                    onChange={(e) => setForm({ ...form, prenom: e.target.value })}
+                    className={`${styles.formInput} ${formErrors.prenom ? styles.formInputError : ""}`}
+                    maxLength={50}
+                  />
+                  {formErrors.prenom && (
+                    <span className={styles.formErrorText}>{formErrors.prenom}</span>
+                  )}
+                </div>
+
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>Nom</label>
+                  <input
+                    type="text"
+                    value={form.nom}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                    className={`${styles.formInput} ${formErrors.nom ? styles.formInputError : ""}`}
+                    maxLength={50}
+                  />
+                  {formErrors.nom && (
+                    <span className={styles.formErrorText}>{formErrors.nom}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>Téléphone</label>
+                <input
+                  type="tel"
+                  value={form.telephone}
+                  onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                  placeholder="20 123 456"
+                  className={`${styles.formInput} ${formErrors.telephone ? styles.formInputError : ""}`}
+                  maxLength={20}
+                />
+                {formErrors.telephone && (
+                  <span className={styles.formErrorText}>{formErrors.telephone}</span>
+                )}
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>Ville</label>
+                <select
+                  value={form.ville}
+                  onChange={(e) => setForm({ ...form, ville: e.target.value })}
+                  className={styles.formInput}
+                >
+                  <option value="">Non renseignée</option>
+                  {VILLES_TUNISIE.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formActions}>
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  disabled={saving}
+                  className={styles.btnCancel}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className={styles.btnSave}
+                >
+                  <Save size={14} />
+                  {saving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* --- MODE LECTURE --- */
+            <>
+              <div className={styles.infoRow}>
+                <Mail size={16} className={styles.infoIcon} />
+                <span className={styles.infoLabel}>Email</span>
+                <span className={styles.infoValue}>
+                  {profileData.email}
+                  <span className={styles.infoNote}>non modifiable</span>
+                </span>
+              </div>
+
+              <div className={styles.infoRow}>
+                <Phone size={16} className={styles.infoIcon} />
+                <span className={styles.infoLabel}>Téléphone</span>
+                <span className={styles.infoValue}>
+                  {profileData.telephone || "Non renseigné"}
+                </span>
+              </div>
+
+              <div className={styles.infoRow}>
+                <MapPin size={16} className={styles.infoIcon} />
+                <span className={styles.infoLabel}>Ville</span>
+                <span className={styles.infoValue}>
+                  {profileData.ville || "Non renseignée"}
+                </span>
+              </div>
+
+              <div className={styles.infoRow}>
+                <Navigation size={16} className={styles.infoIcon} />
+                <span className={styles.infoLabel}>Localisation</span>
+                <span className={styles.infoValue}>
+                  {profileData.has_location ? (
+                    <span className={`${styles.locationStatus} ${styles.locationOn}`}>
+                      <CheckCircle size={12} />
+                      Activée
+                    </span>
+                  ) : (
+                    <span className={`${styles.locationStatus} ${styles.locationOff}`}>
+                      <AlertCircle size={12} />
+                      Non activée
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleActivateLocation}
+                    disabled={locating}
+                    className={styles.locationBtn}
+                  >
+                    {locating ? (
+                      <><Loader2 size={12} className={styles.spin} /> Localisation...</>
+                    ) : profileData.has_location ? (
+                      "Mettre à jour"
+                    ) : (
+                      "Activer"
+                    )}
+                  </button>
+                </span>
+              </div>
+
+              <p className={styles.locationHint}>
+                Votre position sert uniquement à vous proposer les événements
+                proches de chez vous.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Sécurité */}
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>
+              <Lock size={16} className={styles.cardTitleIcon} />
+              Sécurité
+            </h2>
+          </div>
+          <div className={styles.securityRow}>
+            <div>
+              <p className={styles.securityLabel}>Mot de passe</p>
+              <p className={styles.securityHint}>
+                Choisissez un mot de passe long et unique.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className={styles.editBtn}
+            >
+              <Edit3 size={13} />
+              Modifier
+            </button>
           </div>
         </div>
 
@@ -200,7 +469,7 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Modal d'édition */}
+      {/* Modal d'édition des intérêts */}
       {showEditModal && (
         <EditInterestsModal
           currentInterets={interets}
@@ -208,11 +477,165 @@ export default function Profile() {
           onSaved={handleInteretsSaved}
         />
       )}
+
+      {/* Modal de changement de mot de passe */}
+      {showPasswordModal && (
+        <PasswordModal
+          onClose={() => setShowPasswordModal(false)}
+          toast={toast}
+        />
+      )}
     </div>
   );
 }
 
+
+// ============================================================
+// Modale de changement de mot de passe
+// ============================================================
+function PasswordModal({ onClose, toast }) {
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [globalError, setGlobalError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const validate = () => {
+    const e = {};
+    if (!oldPassword) e.old_password = "Champ obligatoire";
+    if (newPassword.length < 8) e.new_password = "Au moins 8 caractères";
+    if (newPassword !== confirmPassword) e.confirm = "Les mots de passe ne correspondent pas";
+    if (oldPassword && newPassword && oldPassword === newPassword) {
+      e.new_password = "Doit être différent de l'actuel";
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    setGlobalError("");
+    if (!validate()) return;
+
+    setSaving(true);
+    try {
+      await changePassword(oldPassword, newPassword);
+      toast.success("Mot de passe modifié");
+      onClose();
+    } catch (err) {
+      console.error("Erreur changement mot de passe :", err);
+      const data = err.response?.data;
+      if (data && typeof data === "object") {
+        const fieldErrors = {};
+        Object.entries(data).forEach(([key, val]) => {
+          fieldErrors[key] = Array.isArray(val) ? val[0] : String(val);
+        });
+        setErrors(fieldErrors);
+        if (data.detail) setGlobalError(data.detail);
+      } else {
+        setGlobalError("Impossible de modifier le mot de passe");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h2>Changer mon mot de passe</h2>
+          <button onClick={onClose} className={styles.modalClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className={styles.modalBody}>
+          {globalError && (
+            <div className={styles.globalError}>
+              <AlertCircle size={14} />
+              {globalError}
+            </div>
+          )}
+
+          <div className={styles.formField}>
+            <label className={styles.formLabel}>Mot de passe actuel</label>
+            <div className={styles.passwordWrap}>
+              <input
+                type={showOld ? "text" : "password"}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className={`${styles.formInput} ${errors.old_password ? styles.formInputError : ""}`}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowOld(!showOld)}
+                className={styles.passwordToggle}
+              >
+                {showOld ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            {errors.old_password && (
+              <span className={styles.formErrorText}>{errors.old_password}</span>
+            )}
+          </div>
+
+          <div className={styles.formField}>
+            <label className={styles.formLabel}>Nouveau mot de passe</label>
+            <div className={styles.passwordWrap}>
+              <input
+                type={showNew ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className={`${styles.formInput} ${errors.new_password ? styles.formInputError : ""}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className={styles.passwordToggle}
+              >
+                {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            {errors.new_password && (
+              <span className={styles.formErrorText}>{errors.new_password}</span>
+            )}
+          </div>
+
+          <div className={styles.formField}>
+            <label className={styles.formLabel}>Confirmer le nouveau mot de passe</label>
+            <input
+              type={showNew ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={`${styles.formInput} ${errors.confirm ? styles.formInputError : ""}`}
+            />
+            {errors.confirm && (
+              <span className={styles.formErrorText}>{errors.confirm}</span>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button onClick={onClose} disabled={saving} className={styles.btnCancel}>
+            Annuler
+          </button>
+          <button onClick={handleSubmit} disabled={saving} className={styles.btnSave}>
+            {saving ? "Enregistrement..." : "Modifier"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
 // Section organisateur avec ses 4 cas
+// ============================================================
 function OrganisateurSection({ isOrganisateur, demande, formatDate, navigate }) {
   // CAS 4 : Déjà organisateur validé
   if (isOrganisateur) {

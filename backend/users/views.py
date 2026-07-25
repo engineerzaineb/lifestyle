@@ -15,8 +15,12 @@ from .serializers import (
     InteretSerializer,
     UpdateInteretsSerializer,
     AuthResponseSerializer,
+    UserUpdateSerializer,
+    ChangePasswordSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
 )
-
+from .emails import send_password_reset_email, send_password_changed_email
 
 # Vue d'inscription 
 class RegisterView(generics.CreateAPIView):
@@ -78,12 +82,26 @@ class LogoutView(APIView):
 
 
 # Vue pour récupérer le user connecté
-class MeView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
+class MeView(generics.RetrieveUpdateAPIView):
+    """GET  /api/auth/me/  -> profil complet
+    PATCH /api/auth/me/  -> modifie nom, prenom, telephone, ville
+    """
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_class(self):
+        if self.request.method in ('PATCH', 'PUT'):
+            return UserUpdateSerializer
+        return UserSerializer
+
+    def update(self, request, *args, **kwargs):
+        # On valide avec le serializer restreint, mais on renvoie
+        # le profil complet pour que le frontend puisse rafraîchir son state.
+        response = super().update(request, *args, **kwargs)
+        return Response(UserSerializer(request.user).data)
 
 
 # Vue pour mettre à jour la localisation 
@@ -157,3 +175,53 @@ class UpdateUserInteretsView(APIView):
             user.interets.add(interet)
 
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+class ChangePasswordView(APIView):
+    """POST /api/auth/me/password/  body: { old_password, new_password }"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Mot de passe modifié avec succès.'})
+class PasswordResetRequestView(APIView):
+    """POST /api/auth/password-reset/  body: { email }
+    Réponse toujours identique, que le compte existe ou non."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.get_user()
+        if user:
+            try:
+                send_password_reset_email(user)
+            except Exception as e:
+                # Un échec d'envoi ne doit pas révéler l'existence du compte
+                print(f"[EMAIL] Échec envoi réinitialisation : {e}")
+
+        return Response({
+            'detail': "Si un compte existe pour cette adresse, "
+                      "un email vient d'être envoyé."
+        })
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/auth/password-reset/confirm/
+    body: { uid, token, new_password }"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        try:
+            send_password_changed_email(user)
+        except Exception as e:
+            print(f"[EMAIL] Échec notification changement : {e}")
+
+        return Response({'detail': 'Mot de passe réinitialisé avec succès.'})
