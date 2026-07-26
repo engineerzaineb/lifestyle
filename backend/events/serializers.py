@@ -63,6 +63,7 @@ class EventListSerializer(serializers.ModelSerializer):
     has_bon_plan = serializers.BooleanField(read_only=True)
     reduction_max = serializers.IntegerField(read_only=True)
     image_url = serializers.SerializerMethodField()
+    is_favori = serializers.SerializerMethodField()
 
     # Stats organisateur
     vues = serializers.SerializerMethodField()
@@ -78,7 +79,7 @@ class EventListSerializer(serializers.ModelSerializer):
             'has_bon_plan', 'reduction_max',
             'organisateur_nom', 'image_url', 'created_at',
             'motif_refus',
-            'vues', 'inscriptions', 'revenue',
+            'vues', 'inscriptions', 'revenue','is_favori',
         ]
 
     def get_image_url(self, obj):
@@ -91,6 +92,16 @@ class EventListSerializer(serializers.ModelSerializer):
 
     def get_vues(self, obj):
         return obj.vues_count
+    def get_is_favori(self, obj):
+        """True si l'utilisateur connecté a mis cet événement en favori."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        # favori_ids est injecté par la vue quand elle est dispo (évite N requêtes)
+        favori_ids = getattr(request, '_favori_ids', None)
+        if favori_ids is not None:
+            return obj.id in favori_ids
+        return obj.favoris.filter(user=request.user).exists()
 
     def get_inscriptions(self, obj):
         return obj.inscriptions_count
@@ -134,6 +145,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
     vues = serializers.SerializerMethodField()
     inscriptions = serializers.SerializerMethodField()
     revenue = serializers.SerializerMethodField()
+    is_favori = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -147,7 +159,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'completion_percentage', 'missing_fields',
             'categorie_slug', 'nouvelle_categorie', 'tags_list',
             'types_billets_data', 'is_draft',
-            'vues', 'inscriptions', 'revenue',
+            'vues', 'inscriptions', 'revenue','is_favori',
         ]
         read_only_fields = [
             'capacite', 'prix', 'is_valide', 'motif_refus',
@@ -156,6 +168,12 @@ class EventDetailSerializer(serializers.ModelSerializer):
 
     def get_vues(self, obj):
         return obj.vues_count
+    def get_is_favori(self, obj):
+        """True si l'utilisateur connecté a mis cet événement en favori."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.favoris.filter(user=request.user).exists()
 
     def get_inscriptions(self, obj):
         return obj.inscriptions_count
@@ -412,26 +430,61 @@ class ReservationCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
+        from django.db import transaction
+        from django.db.models import Sum
+
         user = self.context['request'].user
         event = validated_data['_event']
-        total_prix = validated_data['_total_prix']
         items_data = validated_data['items']
 
-        reservation = Reservation.objects.create(
-            user=user,
-            event=event,
-            total_prix=total_prix,
-            statut='confirmee',
-        )
-        for item in items_data:
-            tb = TypeBillet.objects.get(pk=item['type_billet'])
-            ReservationItem.objects.create(
-                reservation=reservation,
-                type_billet=tb,
-                quantite=item['quantite'],
-                prix_unitaire=tb.prix,
-            )
-        return reservation
+        with transaction.atomic():
+            total_prix = Decimal('0')
 
+            # Verrouille les lignes TypeBillet AVANT toute lecture de stock.
+            # Toute autre réservation sur les mêmes billets devra attendre
+            # la fin de cette transaction (commit inclus) avant de continuer.
+            billet_ids = [item['type_billet'] for item in items_data]
+            billets = {
+                tb.id: tb
+                for tb in TypeBillet.objects
+                    .select_for_update()
+                    .filter(pk__in=billet_ids)
+            }
+
+            # Re-vérifie le stock sous verrou, en recalculant les places réservées
+            # directement ici (on ne dépend pas d'une lecture faite hors verrou).
+            for item in items_data:
+                tb = billets.get(item['type_billet'])
+                if tb is None:
+                    raise serializers.ValidationError(
+                        {'items': [f"Type de billet {item['type_billet']} introuvable."]}
+                    )
+                reserved = tb.reservation_items.filter(
+                    reservation__statut='confirmee'
+                ).aggregate(total=Sum('quantite'))['total'] or 0
+                restantes = max(0, tb.capacite - reserved)
+                if item['quantite'] > restantes:
+                    raise serializers.ValidationError(
+                        {'items': [f"Il ne reste que {restantes} place(s) pour {tb.nom}."]}
+                    )
+                total_prix += tb.prix * item['quantite']
+
+            reservation = Reservation.objects.create(
+                user=user,
+                event=event,
+                total_prix=total_prix,
+                statut='confirmee',
+            )
+            for item in items_data:
+                tb = billets[item['type_billet']]
+                ReservationItem.objects.create(
+                    reservation=reservation,
+                    type_billet=tb,
+                    quantite=item['quantite'],
+                    prix_unitaire=tb.prix,
+                )
+
+        return reservation
+    
     def to_representation(self, instance):
         return ReservationReadSerializer(instance, context=self.context).data

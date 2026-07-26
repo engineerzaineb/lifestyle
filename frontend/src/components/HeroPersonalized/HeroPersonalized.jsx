@@ -70,7 +70,7 @@ export default function HeroPersonalized({ user, subtitle }) {
             <Ticket size={12} />
             Mes billets
           </Link>
-          <Link to="/search?bon_plan=true" className={styles.quickActionBtn}>
+          <Link to="/favoris" className={styles.quickActionBtn}>
             <Heart size={12} />
             Mes favoris
           </Link>

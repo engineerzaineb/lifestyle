@@ -6,6 +6,8 @@ import {
   Sparkles, Award
 } from "lucide-react";
 import styles from "./EventCard.module.css";
+import { toggleFavori } from "../../services/favoriService";
+import { useAuth } from "../../context/useAuth";
 
 
 
@@ -26,7 +28,8 @@ export default function EventCard({
   variant = "default",
   showLikeButton = true,
 }) {
-  const [liked, setLiked] = useState(false);
+  const { user } = useAuth();
+  const [liked, setLiked] = useState(event.is_favori || false);
 
   // Récupère icône + couleur de la catégorie
   const cat = event.categorie ? CATEGORY_MAP[event.categorie.slug] : null;
@@ -50,10 +53,21 @@ export default function EventCard({
   const priceLabel = isFree ? "Gratuit" : `${event.prix_min} DT`;
 
   // Gestion du like
-  const handleLike = (e) => {
+  const { isAuthenticated } = useAuth();
+
+  // Gestion du like
+  const handleLike = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setLiked(!liked);
+    if (!isAuthenticated) return;
+
+    const previous = liked;
+    setLiked(!previous); // mise à jour optimiste (instantanée à l'écran)
+    try {
+      await toggleFavori(event.id, previous);
+    } catch {
+      setLiked(previous); // rollback si l'appel échoue
+    }
   };
 
   // VARIANTE COMPACT — mini-carte (sidebar/recommandations)

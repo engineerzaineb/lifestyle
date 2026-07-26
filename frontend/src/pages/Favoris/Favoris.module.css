@@ -1,0 +1,28 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.header {
+  margin-bottom: 28px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+}

@@ -10,6 +10,7 @@ import {
 import { getShareInfo } from "../../services/eventDisplayService";
 import { useAuth } from "../../context/useAuth";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { toggleFavori } from "../../services/favoriService";
 
 import EventHero from "../../components/event-detail/EventHero/EventHero";
 import EventQuickInfo from "../../components/event-detail/EventQuickInfo/EventQuickInfo";
@@ -55,6 +56,7 @@ export default function EventDetail() {
         }
 
         setEvent(data);
+        setFavorite(data.is_favori || false);
         setSelection(createEmptySelection(data.types_billets || []));
 
         // Charge les événements similaires en parallèle
@@ -99,13 +101,20 @@ export default function EventDetail() {
     setSelection((prev) => updateQuantity(prev, key, delta));
   };
 
-  const handleFavorite = () => {
+  const handleFavorite = async () => {
     if (!isAuthenticated) {
       toast.info("Connectez-vous pour ajouter aux favoris");
       return navigate("/login");
     }
-    setFavorite(!favorite);
-    toast.success(favorite ? "Retiré des favoris" : "Ajouté aux favoris");
+    const previous = favorite;
+    setFavorite(!previous); // mise à jour optimiste
+    try {
+      await toggleFavori(event.id, previous);
+      toast.success(previous ? "Retiré des favoris" : "Ajouté aux favoris");
+    } catch {
+      setFavorite(previous); // rollback si échec
+      toast.error("Action impossible");
+    }
   };
 
   const handleShare = async () => {

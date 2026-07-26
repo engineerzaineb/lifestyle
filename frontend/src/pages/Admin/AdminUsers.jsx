@@ -38,6 +38,7 @@ export default function AdminUsers() {
 useEffect(() => {
     let cancelled = false;
     const filtre = FILTRES.find((f) => f.key === activeFilter) || FILTRES[0];
+    setLoading(true);
 
     fetchUsers({ q: debouncedQuery, ...filtre.params })
       .then((data) => { if (!cancelled) setUsers(data); })

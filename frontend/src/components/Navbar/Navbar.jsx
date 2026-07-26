@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Home, Compass, Search, Mail, LogIn, UserPlus, Menu, X,
   Bell, Plus, Calendar, FileText, User, LogOut, Settings,
-  ShieldCheck, Sparkles
+  ShieldCheck, Sparkles,Heart
 } from "lucide-react";
 import styles from "./Navbar.module.css";
 
@@ -193,6 +193,11 @@ function UserMenu({ user, isOpen, setIsOpen, onLogout }) {
             <Link to="/my-reservations" className={styles.dropdownLink}>
               <Calendar size={14} />
               Mes réservations
+            </Link>
+
+            <Link to="/favoris" className={styles.dropdownLink}>
+              <Heart size={14} />
+              Mes favoris
             </Link>
 
             {/* Liens organisateur (si is_organisateur) */}

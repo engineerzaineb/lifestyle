@@ -27,6 +27,7 @@ import Profile from "./pages/Profile/Profile";
 // Pages utilisateur
 import HomeUser from "./pages/HomeUser/HomeUser";
 import MyReservations from "./pages/MyReservations/MyReservations";
+import Favoris from "./pages/Favoris/Favoris";
 import DevenirOrganisateur from "./pages/DevenirOrganisateur/DevenirOrganisateur";
 import ForgotPassword from "./pages/ForgotPassword/ForgotPassword";
 import ResetPassword from "./pages/ForgotPassword/ResetPassword";
@@ -102,6 +103,9 @@ function AppContent() {
           } />
           <Route path="/my-reservations" element={
             <ProtectedRoute><MyReservations /></ProtectedRoute>
+          } />
+          <Route path="/favoris" element={
+            <ProtectedRoute><Favoris /></ProtectedRoute>
           } />
           {<Route path="/booking/:id" element={
             <ProtectedRoute><Booking /></ProtectedRoute>

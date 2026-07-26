@@ -366,3 +366,17 @@ class ReservationItem(models.Model):
     @property
     def sous_total(self):
         return self.prix_unitaire * self.quantite
+# === FAVORIS ===
+class Favori(models.Model):
+    """Un favori = un lien entre un utilisateur et un événement."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favoris')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='favoris')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Un même user ne peut pas mettre deux fois le même event en favori
+        unique_together = ('user', 'event')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} ♥ {self.event.titre}"

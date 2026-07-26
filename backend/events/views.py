@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q, F, Exists, OuterRef
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation
+from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation,Favori
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
     CategorieSerializer, TagSerializer,
@@ -876,14 +876,8 @@ class CategorieViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().destroy(request, *args, **kwargs)
-        categorie = self.get_object()
-        if categorie.evenements.exists():
-            return Response(
-                {'detail': f"Impossible de supprimer : {categorie.evenements.count()} "
-                           f"événement(s) utilisent cette catégorie."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return super().destroy(request, *args, **kwargs)
+        
+        
 
     # GET /api/categories/en-attente/
     @action(detail=False, methods=['get'], url_path='en-attente')
@@ -990,3 +984,48 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'total': str(reservation.total_prix),
             'detail': 'Génération PDF à venir. Pour l\'instant, imprime cette page.',
         })
+        # ============================================================
+# ViewSet pour les favoris
+# ============================================================
+class FavoriViewSet(viewsets.ViewSet):
+    """Gestion des favoris du user connecté."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    # GET /api/favoris/  -> liste des événements favoris du user
+    def list(self, request):
+        favoris = Favori.objects.filter(user=request.user) \
+            .select_related('event', 'event__categorie', 'event__organisateur') \
+            .prefetch_related('event__tags', 'event__types_billets')
+        events = [f.event for f in favoris]
+
+        # Pré-charge les ids favoris pour que is_favori soit True sans requête en plus
+        request._favori_ids = {e.id for e in events}
+
+        serializer = EventListSerializer(events, many=True, context={'request': request})
+        return Response({'results': serializer.data, 'count': len(events)})
+
+    # POST /api/favoris/  body: { "event_id": 12 }  -> ajoute
+    def create(self, request):
+        event_id = request.data.get('event_id')
+        if not event_id:
+            return Response({'detail': 'event_id requis.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            return Response({'detail': 'Événement introuvable.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        favori, created = Favori.objects.get_or_create(user=request.user, event=event)
+        return Response(
+            {'event_id': event.id, 'is_favori': True, 'created': created},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    # DELETE /api/favoris/{event_id}/  -> retire
+    def destroy(self, request, pk=None):
+        deleted, _ = Favori.objects.filter(user=request.user, event_id=pk).delete()
+        return Response(
+            {'event_id': int(pk), 'is_favori': False, 'deleted': bool(deleted)},
+            status=status.HTTP_200_OK,
+        )
