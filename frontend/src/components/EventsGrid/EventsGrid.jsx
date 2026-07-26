@@ -14,6 +14,7 @@ export default function EventsGrid({
   emptyActionLabel = "Découvrir des événements",
   emptyActionTo = "/discover",
   skeletonCount = 6,
+  onUnfavorite,
 }) {
 
   // ÉTAT LOADING — afficher des skeletons
@@ -89,6 +90,9 @@ export default function EventsGrid({
     <div className={`${styles.grid} ${getColumnsClass(columns)}`}>
       {events.map((event) => (
         <EventCard key={event.id} event={event} />
+      ))}
+      {events.map((event) => (
+        <EventCard key={event.id} event={event} onUnfavorite={onUnfavorite} />
       ))}
     </div>
   );

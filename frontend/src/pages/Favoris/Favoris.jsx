@@ -43,6 +43,7 @@ export default function Favoris() {
       <EventsGrid
         events={events}
         loading={loading}
+        onUnfavorite={(id) => setEvents((prev) => prev.filter((e) => e.id !== id))}
         emptyTitle="Aucun favori pour l'instant"
         emptyMessage="Cliquez sur le cœur d'un événement pour l'ajouter à vos favoris."
         emptyActionLabel="Découvrir des événements"

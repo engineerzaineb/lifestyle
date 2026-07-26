@@ -27,8 +27,8 @@ export default function EventCard({
   event,
   variant = "default",
   showLikeButton = true,
+  onUnfavorite,
 }) {
-  const { user } = useAuth();
   const [liked, setLiked] = useState(event.is_favori || false);
 
   // Récupère icône + couleur de la catégorie
@@ -62,11 +62,13 @@ export default function EventCard({
     if (!isAuthenticated) return;
 
     const previous = liked;
-    setLiked(!previous); // mise à jour optimiste (instantanée à l'écran)
+    setLiked(!previous);
     try {
       await toggleFavori(event.id, previous);
+      // Si on vient de RETIRER le favori, on prévient le parent
+      if (previous && onUnfavorite) onUnfavorite(event.id);
     } catch {
-      setLiked(previous); // rollback si l'appel échoue
+      setLiked(previous);
     }
   };
 
