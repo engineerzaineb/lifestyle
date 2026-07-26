@@ -88,9 +88,7 @@ export default function EventsGrid({
   // VARIANTE DEFAULT — grille verticale
   return (
     <div className={`${styles.grid} ${getColumnsClass(columns)}`}>
-      {events.map((event) => (
-        <EventCard key={event.id} event={event} />
-      ))}
+      
       {events.map((event) => (
         <EventCard key={event.id} event={event} onUnfavorite={onUnfavorite} />
       ))}
