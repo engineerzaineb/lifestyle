@@ -2,6 +2,8 @@ from decimal import Decimal
 from rest_framework import serializers
 from django.utils.text import slugify
 from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationItem
+from .fidelite import remise_fidelite_pct
+from .models import Notification
 
 
 class CategorieSerializer(serializers.ModelSerializer):
@@ -139,6 +141,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
 
     organisateur_nom = serializers.CharField(source='organisateur_nom_complet', read_only=True)
     capacite_totale = serializers.IntegerField(read_only=True)
+    places_restantes = serializers.IntegerField(read_only=True)
     prix_min = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     # Stats organisateur
@@ -153,7 +156,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'id', 'titre', 'description', 'date_evenement',
             'lieu', 'ville', 'statut', 'image',
             'categorie', 'tags', 'types_billets',
-            'capacite', 'prix', 'capacite_totale', 'prix_min',
+            'capacite','places_restantes', 'prix', 'capacite_totale', 'prix_min',
             'organisateur', 'organisateur_nom', 'is_valide', 'motif_refus',
             'created_at', 'updated_at',
             'completion_percentage', 'missing_fields',
@@ -383,7 +386,8 @@ class ReservationReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reservation
         fields = [
-            'id', 'code_reference', 'statut', 'total_prix', 'total_places',
+            'id', 'code_reference', 'statut', 'total_prix', 'remise_fidelite_pct', 'montant_remise_fidelite',
+            'total_places',
             'date_reservation', 'date_annulation', 'motif_annulation',
             'event', 'items',
         ]
@@ -469,10 +473,18 @@ class ReservationCreateSerializer(serializers.Serializer):
                     )
                 total_prix += tb.prix * item['quantite']
 
+            # === REMISE FIDELITE ===
+            # Le palier est calculé sur les réservations confirmées AVANT celle-ci
+            pct = remise_fidelite_pct(user)
+            montant_remise = (total_prix * Decimal(pct) / Decimal(100)).quantize(Decimal('0.01'))
+            total_paye = total_prix - montant_remise
+
             reservation = Reservation.objects.create(
                 user=user,
                 event=event,
-                total_prix=total_prix,
+                total_prix=total_paye,
+                remise_fidelite_pct=pct,
+                montant_remise_fidelite=montant_remise,
                 statut='confirmee',
             )
             for item in items_data:
@@ -488,3 +500,9 @@ class ReservationCreateSerializer(serializers.Serializer):
     
     def to_representation(self, instance):
         return ReservationReadSerializer(instance, context=self.context).data
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'titre', 'lien', 'lue', 'created_at']

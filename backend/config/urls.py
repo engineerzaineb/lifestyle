@@ -2,11 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from events.views_share import share_event
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/', include('events.urls')),
+    path('share/event/<int:pk>/', share_event, name='share-event'),
+    
 ]
 
 # Servir les fichiers media en développement

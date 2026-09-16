@@ -180,6 +180,11 @@ class Event(models.Model):
     def capacite_totale(self):
         """Somme des capacités de tous les types de billets."""
         return sum(tb.capacite for tb in self.types_billets.all())
+    
+    @property
+    def places_restantes(self):
+        """Somme des places restantes sur tous les types de billets."""
+        return sum(tb.places_restantes for tb in self.types_billets.all())
 
     @property
     def prix_min(self):
@@ -332,6 +337,9 @@ class Reservation(models.Model):
     date_reservation = models.DateTimeField(auto_now_add=True)
     date_annulation = models.DateTimeField(null=True, blank=True)
     motif_annulation = models.TextField(blank=True)
+    # Fidélité : trace de la remise appliquée au moment de la réservation
+    remise_fidelite_pct = models.PositiveIntegerField(default=0)
+    montant_remise_fidelite = models.DecimalField(max_digits=8, decimal_places=2, default=0)
 
     class Meta:
         ordering = ['-date_reservation']
@@ -380,3 +388,24 @@ class Favori(models.Model):
 
     def __str__(self):
         return f"{self.user.email} ♥ {self.event.titre}"
+    
+# === NOTIFICATIONS ===
+class Notification(models.Model):
+    """Une notification destinée à un utilisateur (affichée via la cloche)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    titre = models.CharField(max_length=200)
+    lien = models.CharField(max_length=200, blank=True)   # ex: /event/33
+    lue = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} — {self.titre}"
+
+
+def notifier(user, titre, lien=""):
+    """Fonction utilitaire : crée une notification pour un utilisateur.
+    Appelable depuis n'importe où (annulation, validation, offres...)."""
+    return Notification.objects.create(user=user, titre=titre, lien=lien)

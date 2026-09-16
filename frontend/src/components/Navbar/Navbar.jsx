@@ -6,6 +6,7 @@ import {
   ShieldCheck, Sparkles,Heart
 } from "lucide-react";
 import styles from "./Navbar.module.css";
+import NotifBell from "../NotifBell/NotifBell";
 
 
 export default function Navbar({ user = null, onLogout }) {
@@ -108,7 +109,7 @@ function ConnectedActions({ user, userMenuOpen, setUserMenuOpen, onLogout }) {
 
   return (
     <>
-      {/* Bouton "Créer" pour les organisateurs */}
+      {/* Bouton Créer pour les organisateurs */}
       {isOrganizer && (
         <Link to="/organizer/create" className={styles.createBtn}>
           <Plus size={13} />
@@ -125,10 +126,7 @@ function ConnectedActions({ user, userMenuOpen, setUserMenuOpen, onLogout }) {
       )}
 
       {/* Notifications */}
-      <button className={styles.notifBtn} aria-label="Notifications">
-        <Bell size={15} />
-        <span className={styles.notifDot} />
-      </button>
+      <NotifBell />
 
       {/* Avatar + dropdown */}
       <UserMenu

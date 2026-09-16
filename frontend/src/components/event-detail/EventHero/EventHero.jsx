@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Heart, Share2, Sparkles, Zap } from "lucide-react";
 import { getCategoryInfo } from "../../../services/eventDisplayService";
 import styles from "./EventHero.module.css";
+import ShareMenu from "../../ShareMenu/ShareMenu";
 
 
 export default function EventHero({
@@ -39,14 +40,21 @@ export default function EventHero({
               color={favorite ? "var(--color-pink)" : "currentColor"}
             />
           </button>
-          <button
-            onClick={onShare}
-            className={`${styles.iconBtn} ${styles.iconBtnSolo}`}
-            aria-label="Partager"
-            title="Partager"
-          >
-            <Share2 size={16} />
-          </button>
+          {event.statut === "publie" && (
+            <ShareMenu
+              url={`${window.location.origin}/event/${event.id}`}
+              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              trigger={
+                <button
+                  className={`${styles.iconBtn} ${styles.iconBtnSolo}`}
+                  aria-label="Partager"
+                  title="Partager"
+                >
+                  <Share2 size={16} />
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
 

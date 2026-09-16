@@ -13,6 +13,7 @@ from .serializers import (
     CategorieSerializer, TagSerializer,
     ReservationReadSerializer, ReservationCreateSerializer,
 )
+from rest_framework.views import APIView
 
 
 # Mapping des mois français vers leur numéro
@@ -307,6 +308,14 @@ class EventViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(organisateur=user, statut='brouillon')
             elif mes_events == 'true':
                 qs = qs.filter(organisateur=user)
+            else:
+                qs = qs.filter(statut='publie', is_valide=True)
+        elif self.action == 'retrieve':
+            # Un event non publié n'est visible que par son organisateur ou un admin
+            if user.is_authenticated and user.role == 'admin':
+                pass
+            elif user.is_authenticated:
+                qs = qs.filter(Q(statut='publie', is_valide=True) | Q(organisateur=user))
             else:
                 qs = qs.filter(statut='publie', is_valide=True)
 
@@ -1028,4 +1037,48 @@ class FavoriViewSet(viewsets.ViewSet):
         return Response(
             {'event_id': int(pk), 'is_favori': False, 'deleted': bool(deleted)},
             status=status.HTTP_200_OK,
-        )
+        ) 
+    
+# ============================================================
+# Fidélité
+# ============================================================
+from .fidelite import get_palier_info
+
+class FideliteView(APIView):
+    """GET /api/fidelite/me/ — palier, remise et progression du user connecté."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_palier_info(request.user))      
+# ============================================================
+# Notifications
+# ============================================================
+from .models import Notification
+from .serializers import NotificationSerializer
+
+class NotificationViewSet(viewsets.ViewSet):
+    """Notifications du user connecté (affichées via la cloche)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    # GET /api/notifications/  -> liste + nombre de non-lues
+    def list(self, request):
+        qs = Notification.objects.filter(user=request.user)[:30]
+        serializer = NotificationSerializer(qs, many=True)
+        non_lues = Notification.objects.filter(user=request.user, lue=False).count()
+        return Response({'results': serializer.data, 'non_lues': non_lues})
+
+    # POST /api/notifications/{id}/lue/  -> marque une notif comme lue
+    @action(detail=True, methods=['post'], url_path='lue')
+    def marquer_lue(self, request, pk=None):
+        n = Notification.objects.filter(user=request.user, pk=pk).first()
+        if not n:
+            return Response({'detail': 'Introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        n.lue = True
+        n.save()
+        return Response({'id': n.id, 'lue': True})
+
+    # POST /api/notifications/tout-lu/  -> marque tout comme lu
+    @action(detail=False, methods=['post'], url_path='tout-lu')
+    def tout_lu(self, request):
+        Notification.objects.filter(user=request.user, lue=False).update(lue=True)
+        return Response({'detail': 'Toutes les notifications sont lues.'})
