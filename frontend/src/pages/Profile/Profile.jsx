@@ -15,6 +15,7 @@ import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { VILLES_TUNISIE } from "../../utils/constants";
 import EditInterestsModal from "../../components/EditInterestsModal/EditInterestsModal";
 import styles from "./Profile.module.css";
+import FideliteCard from "../../components/FideliteCard/FideliteCard";
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -386,6 +387,9 @@ export default function Profile() {
             </>
           )}
         </div>
+        
+        {/* Fidélité */}
+        <FideliteCard />
 
         {/* Sécurité */}
         <div className={styles.card}>

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+
 import {
   Eye, Edit3, MoreVertical, Calendar, MapPin, Users,
-  Banknote, BarChart3, Copy, Trash2, XCircle, Send
+  Banknote, BarChart3, Copy, Trash2, XCircle, Send, Share2,
 } from "lucide-react";
 import {
   getStatusDisplay,
@@ -10,6 +11,7 @@ import {
 } from "../../../services/organizerService";
 import { formatDate, formatPrice, formatCompactNumber } from "../../../utils/formatters";
 import styles from "./OrganizerEventCard.module.css";
+import ShareMenu from "../../ShareMenu/ShareMenu";
 
 
 export default function OrganizerEventCard({ event, view = "grid", onAction }) {
@@ -79,6 +81,18 @@ function GridVariant({ event, onAction }) {
               <Edit3 size={12} />
               Modifier
             </Link>
+          )}
+          {event.statut === "publie" && (
+            <ShareMenu
+              url={`${window.location.origin}/event/${event.id}`}
+              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              trigger={
+                <button className={styles.actionBtn} type="button" title="Partager">
+                  <Share2 size={12} />
+                  Partager
+                </button>
+              }
+            />
           )}
           <ActionMenu actions={actions} event={event} onAction={onAction} />
         </div>
@@ -154,6 +168,18 @@ function ListVariant({ event, onAction }) {
             Modifier
           </Link>
         )}
+        {event.statut === "publie" && (
+            <ShareMenu
+              url={`${window.location.origin}/event/${event.id}`}
+              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              trigger={
+                <button className={styles.actionBtn} type="button" title="Partager">
+                  <Share2 size={12} />
+                  Partager
+                </button>
+              }
+            />
+          )}
         <ActionMenu actions={actions} event={event} onAction={onAction} />
       </div>
     </div>

@@ -9,6 +9,7 @@ import { createReservation } from "../../services/bookingService";
 import { useAuth } from "../../context/useAuth";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { formatDate } from "../../utils/formatters";
+import { fetchMonPalier } from "../../services/fideliteService";
 
 import styles from "./Booking.module.css";
 
@@ -27,6 +28,7 @@ export default function Booking() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(null);
+  const [fidelite, setFidelite] = useState(null);
 
   // Si aucune sélection valide → retour à l'événement
   useEffect(() => {
@@ -62,6 +64,16 @@ export default function Booking() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+  // Charge le palier de fidélité pour afficher la remise au checkout
+  useEffect(() => {
+    let cancelled = false;
+    fetchMonPalier()
+      .then((data) => { if (!cancelled) setFidelite(data.palier); })
+      .catch(() => { /* pas bloquant */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  
 
   // Calcul des lignes de billets à afficher + total
   const { items, total, totalPlaces } = useMemo(() => {
@@ -79,6 +91,10 @@ export default function Booking() {
       totalPlaces: rows.reduce((sum, r) => sum + r.quantite, 0),
     };
   }, [event, initialSelection]);
+
+  const remisePct = fidelite?.remise_pct || 0;
+  const montantRemise = (total * remisePct) / 100;
+  const totalFinal = total - montantRemise;
 
   const handleConfirm = async () => {
     if (submitting) return;
@@ -263,6 +279,12 @@ export default function Booking() {
 
               <div className={styles.divider} />
 
+              {remisePct > 0 && (
+                <div className={styles.remiseRow}>
+                  <span>🏅 Remise fidélité {fidelite.nom} (-{remisePct}%)</span>
+                  <span>-{montantRemise.toFixed(2)} DT</span>
+                </div>
+              )}
               <div className={styles.totalRow}>
                 <div>
                   <div className={styles.totalLabel}>Total</div>
@@ -271,7 +293,7 @@ export default function Booking() {
                   </div>
                 </div>
                 <div className={styles.totalValue}>
-                  {total.toFixed(2)} DT
+                  {totalFinal.toFixed(2)} DT
                 </div>
               </div>
 

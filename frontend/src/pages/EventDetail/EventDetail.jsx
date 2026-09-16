@@ -7,7 +7,7 @@ import {
   updateQuantity,
   isSelectionValid,
 } from "../../services/bookingService";
-import { getShareInfo } from "../../services/eventDisplayService";
+
 import { useAuth } from "../../context/useAuth";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { toggleFavori } from "../../services/favoriService";
@@ -117,16 +117,7 @@ export default function EventDetail() {
     }
   };
 
-  const handleShare = async () => {
-    const info = getShareInfo(event);
-    if (navigator.share) {
-      try { await navigator.share(info); } catch { /* annulé par user */ }
-    } else {
-      navigator.clipboard.writeText(info.url);
-      toast.success("Lien copié !");
-    }
-  };
-
+ 
   const handleBook = () => {
     if (!isSelectionValid(selection)) {
       return toast.warning("Sélectionnez au moins un billet");
@@ -153,7 +144,7 @@ export default function EventDetail() {
         event={event}
         favorite={favorite}
         onFavorite={handleFavorite}
-        onShare={handleShare}
+        
       />
 
       <div className={styles.main}>

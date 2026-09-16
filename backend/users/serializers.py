@@ -69,14 +69,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     # Champs temporaires (pas dans le modèle mais reçus du frontend)
     latitude = serializers.DecimalField(
-        max_digits=9,
+        max_digits=11,
         decimal_places=6,
         required=False,
         allow_null=True,
         write_only=True,
     )
     longitude = serializers.DecimalField(
-        max_digits=9,
+        max_digits=11,
         decimal_places=6,
         required=False,
         allow_null=True,
@@ -137,6 +137,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             user.update_location(latitude, longitude, source='register')
 
         return user
+
+    def validate_telephone(self, value):
+        if not value:
+            return value
+        cleaned = value.replace(' ', '').replace('-', '')
+        if not cleaned.lstrip('+').isdigit():
+            raise serializers.ValidationError("Numéro de téléphone invalide : chiffres uniquement.")
+        return value.strip()
 
 
 # Serializer pour mettre à jour la localisation d'un user existant
@@ -225,7 +233,7 @@ class DemandeOrganisateurReadSerializer(serializers.ModelSerializer):
     def get_categories_prevues_noms(self, obj):
         return [c.nom for c in obj.categories_prevues.all()]
     
-# === ADMINISTRATION DES UTILISATEURS ===
+# ADMINISTRATION DES UTILISATEURS 
 
 class AdminUserListSerializer(serializers.ModelSerializer):
     """Vue admin d'un utilisateur, avec compteurs d'activité."""
@@ -256,7 +264,7 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     def get_demande_statut(self, obj):
         demande = getattr(obj, 'demande_organisateur', None)
         return demande.statut if demande else None
-# === MISE À JOUR DU PROFIL ===
+# MISE À JOUR DU PROFIL 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Champs qu'un utilisateur peut modifier lui-même.
@@ -320,7 +328,7 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password'])
         return user
-# === RÉINITIALISATION DE MOT DE PASSE ===
+# RÉINITIALISATION DE MOT DE PASSE 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     """Demande d'envoi d'un lien. On ne révèle jamais si l'email existe,

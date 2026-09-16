@@ -39,8 +39,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_organisateur = models.BooleanField(default=False)
 
     # Position actuelle (la plus récente) 
-    current_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    current_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    current_latitude = models.DecimalField(max_digits=11, decimal_places=6, null=True, blank=True)
+    current_longitude = models.DecimalField(max_digits=11, decimal_places=6, null=True, blank=True)
     last_location_update = models.DateTimeField(null=True, blank=True)
     
     # Centres d'intérêt 
@@ -112,8 +112,8 @@ class UserLocation(models.Model):
         on_delete=models.CASCADE,
         related_name='locations',
     )
-    latitude = models.DecimalField(max_digits=9, decimal_places=6)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    latitude = models.DecimalField(max_digits=11, decimal_places=6)
+    longitude = models.DecimalField(max_digits=11, decimal_places=6)
     detected_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='login')
     ville_detectee = models.CharField(max_length=100, blank=True)
