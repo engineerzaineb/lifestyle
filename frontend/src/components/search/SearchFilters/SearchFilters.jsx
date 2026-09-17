@@ -1,12 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
 import { SlidersHorizontal, MapPin, Zap, Search } from "lucide-react";
-import { CATEGORIES, VILLES_TUNISIE } from "../../../utils/constants";
+import { VILLES_TUNISIE } from "../../../utils/constants";
 import { countActiveFilters, PRIX_MIN_DEFAULT, PRIX_MAX_DEFAULT } from "../../../services/searchService";
+import { fetchCategories } from "../../../services/eventService";
 import styles from "./SearchFilters.module.css";
 
 export default function SearchFilters({ filters, onChange, onReset }) {
   const activeCount = countActiveFilters(filters);
   const [villeSearch, setVilleSearch] = useState("");
+  const [categorieSearch, setCategorieSearch] = useState("");
+  const [categories, setCategories] = useState([]);
+
+  // Charge les catégories validées depuis la base
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories()
+      .then((data) => { if (!cancelled) setCategories(data); })
+      .catch(() => { /* silencieux */ });
+    return () => { cancelled = true; };
+  }, []);
+
 
   // Helper pour update un champ
   const update = (field, value) => {
@@ -37,6 +50,12 @@ export default function SearchFilters({ filters, onChange, onReset }) {
     const q = villeSearch.toLowerCase();
     return VILLES_TUNISIE.filter((v) => v.toLowerCase().includes(q));
   }, [villeSearch]);
+    // Filtrer les catégories selon la recherche
+  const categoriesFiltered = useMemo(() => {
+    if (!categorieSearch) return categories;
+    const q = categorieSearch.toLowerCase();
+    return categories.filter((cat) => cat.nom.toLowerCase().includes(q));
+  }, [categorieSearch, categories]);
 
   // Slider prix
   const handlePriceMinChange = (e) => {
@@ -77,19 +96,29 @@ export default function SearchFilters({ filters, onChange, onReset }) {
           </button>
         </div>
 
-        {/* Catégories (multi-sélection) */}
+                {/* Catégories (multi-sélection + recherche) */}
         <FilterSection title="Catégories">
-          <div className={styles.chipsGrid}>
-            {Object.entries(CATEGORIES).map(([slug, cat]) => {
-              const isSelected = filters.categorie_slugs?.includes(slug);
+          <div style={{ position: "relative" }}>
+            <Search size={12} style={{ position: "absolute", left: 10, top: 11, color: "var(--color-text-muted)" }} />
+            <input
+              type="text"
+              value={categorieSearch}
+              onChange={(e) => setCategorieSearch(e.target.value)}
+              placeholder="Rechercher une catégorie..."
+              className={styles.searchInput}
+              style={{ paddingLeft: 28 }}
+            />
+          </div>
+          <div className={styles.chipsGrid} style={{ marginTop: 10 }}>
+            {categoriesFiltered.map((cat) => {
+              const isSelected = filters.categorie_slugs?.includes(cat.slug);
               return (
                 <button
-                  key={slug}
+                  key={cat.slug}
                   type="button"
-                  onClick={() => toggleCategorie(slug)}
+                  onClick={() => toggleCategorie(cat.slug)}
                   className={`${styles.chip} ${isSelected ? styles.selected : ""}`}
                 >
-                  <span className={styles.chipEmoji}>{cat.emoji}</span>
                   {cat.nom}
                 </button>
               );

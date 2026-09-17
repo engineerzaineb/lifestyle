@@ -117,8 +117,13 @@ def apply_date_filter(qs, period):
         return qs.filter(date_evenement__gte=sat_start, date_evenement__lte=sun_end)
 
     elif period == 'month':
-        end_of_month = now + timedelta(days=30)
-        return qs.filter(date_evenement__gte=now, date_evenement__lte=end_of_month)
+        # Du maintenant jusqu'au dernier jour du mois en cours
+        import calendar
+        dernier_jour = calendar.monthrange(now.year, now.month)[1]
+        fin_du_mois = now.replace(
+            day=dernier_jour, hour=23, minute=59, second=59
+        )
+        return qs.filter(date_evenement__gte=now, date_evenement__lte=fin_du_mois)
 
     return qs
 
@@ -858,6 +863,10 @@ class CategorieViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
             return [permissions.AllowAny()]
+        # Tout utilisateur connecté peut PROPOSER une catégorie (create)
+        if self.action == 'create':
+            return [permissions.IsAuthenticated()]
+        # Modifier, supprimer, valider, refuser : admin seulement
         return [IsAdminRole()]
 
     def get_queryset(self):
@@ -873,8 +882,11 @@ class CategorieViewSet(viewsets.ModelViewSet):
         return qs.filter(is_validee=True)
 
     def perform_create(self, serializer):
-        # Une catégorie créée par un admin est validée d'office
-        serializer.save(is_validee=True, proposee_par=self.request.user)
+        user = self.request.user
+        # Un admin crée une catégorie validée d'office ;
+        # tout autre utilisateur la PROPOSE (en attente de validation)
+        est_admin = user.is_authenticated and user.role == 'admin'
+        serializer.save(is_validee=est_admin, proposee_par=user)
 
     def destroy(self, request, *args, **kwargs):
         categorie = self.get_object()

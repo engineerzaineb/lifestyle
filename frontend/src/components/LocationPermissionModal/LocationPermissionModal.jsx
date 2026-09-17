@@ -28,9 +28,9 @@ export default function LocationPermissionModal({ onAllow, onDeny }) {
       // Succès : on récupère la position
       (pos) => {
         setIsLoading(false);
-        onAllow({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
+                onAllow({
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+          longitude: Number(pos.coords.longitude.toFixed(6)),
         });
       },
       // Erreur : refus ou problème technique
