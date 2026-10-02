@@ -7,6 +7,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import viewsets
 
 from .models import User, UserLocation, Interet
+from events.models import Categorie
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
@@ -22,7 +23,7 @@ from .serializers import (
 )
 from .emails import send_password_reset_email, send_password_changed_email
 
-# Vue d'inscription 
+# vue d'inscription 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -38,7 +39,7 @@ class RegisterView(generics.CreateAPIView):
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
-# Serializer personnalisé pour le login 
+# serializer le login 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.USERNAME_FIELD
 
@@ -51,12 +52,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
-# Vue de login personnalisée
+# vue de login personnalisée
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-# Vue de logout : blacklist le refresh token
+# vue de logout : blacklist le refresh token
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -81,7 +82,7 @@ class LogoutView(APIView):
             )
 
 
-# Vue pour récupérer le user connecté
+# vue pour récupérer le user connecté
 class MeView(generics.RetrieveUpdateAPIView):
     """GET  /api/auth/me/  -> profil complet
     PATCH /api/auth/me/  -> modifie nom, prenom, telephone, ville
@@ -98,14 +99,14 @@ class MeView(generics.RetrieveUpdateAPIView):
         return UserSerializer
 
     def update(self, request, *args, **kwargs):
-        # On valide avec le serializer restreint, mais on renvoie
-        # le profil complet pour que le frontend puisse rafraîchir son state.
+        # on valide avec le serializer restreint, mais on renvoie
+        # le profil complet pour que le frontend puisse rafraichir son state.
         response = super().update(request, *args, **kwargs)
         return Response(UserSerializer(request.user).data)
 
 
-# Vue pour mettre à jour la localisation 
-# Met à jour current_lat/lng ET ajoute à l'historique UserLocation
+# vue pour mettre à jour la localisation 
+# met à jour current_lat/lng ET ajoute à l'historique UserLocation
 class UpdateLocationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -115,7 +116,7 @@ class UpdateLocationView(APIView):
 
         user = request.user
 
-        # Utilise la méthode du modèle qui gère tout (current + historique)
+        # utilise la méthode du modèle qui gère tout (current + historique)
         user.update_location(
             latitude=serializer.validated_data['latitude'],
             longitude=serializer.validated_data['longitude'],
@@ -125,7 +126,7 @@ class UpdateLocationView(APIView):
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 
 
-# Vue pour récupérer l'historique des localisations
+# vue pour récupérer l'historique des localisations
 class MyLocationsView(generics.ListAPIView):
     serializer_class = UserLocationSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -133,15 +134,15 @@ class MyLocationsView(generics.ListAPIView):
     def get_queryset(self):
         # Retourne les 50 dernières positions du user
         return UserLocation.objects.filter(user=self.request.user)[:50]
-# Liste les intérêts officiels
+# liste les intérets officiels
 class InteretListView(generics.ListAPIView):
-    queryset = Interet.objects.filter(is_official=True)
+    queryset = Categorie.objects.filter(is_validee=True).order_by('nom')
     serializer_class = InteretSerializer
     permission_classes = [permissions.AllowAny]
     pagination_class = None
 
 
-# Met à jour les intérêts du user connecté
+# met à jour les intérêts du user connecté
 class UpdateUserInteretsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -153,26 +154,23 @@ class UpdateUserInteretsView(APIView):
         interet_ids = serializer.validated_data.get('interet_ids', [])
         custom_interets = serializer.validated_data.get('custom_interets', [])
 
-        # Ajoute les intérêts officiels
+        # ajouter les Intérets officiels = catégories validées choisies
         if interet_ids:
-            interets_officiels = Interet.objects.filter(
-                id__in=interet_ids,
-                is_official=True,
-            )
-            user.interets.set(interets_officiels)
+            categories = Categorie.objects.filter(id__in=interet_ids, is_validee=True)
+            user.interets.set(categories)
         else:
             user.interets.clear()
 
-        # Crée et ajoute les intérêts personnalisés
+        # intérets personnalisés → nouvelle catégorie (en attente d'admin)
         for nom_custom in custom_interets:
             nom_custom = nom_custom.strip()
             if not nom_custom:
                 continue
-            interet, _ = Interet.objects.get_or_create(
+            cat, _ = Categorie.objects.get_or_create(
                 nom__iexact=nom_custom,
-                defaults={'nom': nom_custom.title(), 'is_official': False},
+                defaults={'nom': nom_custom.title(), 'is_validee': False, 'proposee_par': user},
             )
-            user.interets.add(interet)
+            user.interets.add(cat)
 
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 class ChangePasswordView(APIView):

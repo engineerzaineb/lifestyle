@@ -17,7 +17,7 @@ class TagAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('nom',)}
 
 
-# Inline pour gérer les types de billets directement dans la page Event
+# inline pour gérer les types de billets directement dans la page Event
 class TypeBilletInline(admin.TabularInline):
     model = TypeBillet
     extra = 1

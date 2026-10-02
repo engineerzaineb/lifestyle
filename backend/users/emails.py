@@ -14,9 +14,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 
-# ============================================================
 # Gabarit commun
-# ============================================================
 
 def _wrap(titre, corps_html):
     """Enveloppe un contenu dans la charte visuelle d'Eventu."""
@@ -81,9 +79,7 @@ def _envoyer(destinataire, sujet, html, texte):
     message.send(fail_silently=False)
 
 
-# ============================================================
 # Réinitialisation de mot de passe
-# ============================================================
 
 def build_password_reset_link(user):
     """Construit le lien de réinitialisation contenant l'identifiant encodé

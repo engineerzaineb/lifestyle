@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import User, UserLocation, Interet
 
 
-# Affichage du modèle User dans l'admin
+# affichage du modèle User dans l'admin
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ['email', 'nom', 'prenom', 'role', 'ville', 'has_location', 'created_at']
@@ -32,7 +32,7 @@ class UserAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'last_login']
 
 
-# Historique des positions
+# historique des positions
 @admin.register(UserLocation)
 class UserLocationAdmin(admin.ModelAdmin):
     list_display = ['user', 'latitude', 'longitude', 'source', 'detected_at']
@@ -42,7 +42,7 @@ class UserLocationAdmin(admin.ModelAdmin):
     readonly_fields = ['detected_at']
 
 
-# Centres d'intérêt
+# centres d'intérêt
 @admin.register(Interet)
 class InteretAdmin(admin.ModelAdmin):
     list_display = ['icone', 'nom', 'slug', 'is_official', 'created_at']

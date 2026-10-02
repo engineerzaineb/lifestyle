@@ -36,9 +36,7 @@ def strip_accents(text):
     return text.translate(_ACCENTS) if text else text
 
 
-# ============================================================
 # PERMISSIONS
-# ============================================================
 
 # Permission : lecture pour tous, écriture pour organisateur/admin
 # OU user avec demande en_attente (pour les brouillons uniquement)
@@ -92,9 +90,7 @@ class IsAdminRole(permissions.BasePermission):
         )
 
 
-# ============================================================
 # HELPERS
-# ============================================================
 
 # Filtre par période (today, weekend, month)
 def apply_date_filter(qs, period):
@@ -180,9 +176,7 @@ def build_interets_pattern(noms):
     return r'(' + '|'.join(re.escape(n) for n in noms) + r')'
 
 
-# ============================================================
 # ViewSet pour les événements
-# ============================================================
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     permission_classes = [IsOrganisateurOrReadOnly]
@@ -200,7 +194,7 @@ class EventViewSet(viewsets.ModelViewSet):
         user = self.request.user
         params = self.request.query_params
 
-        # === RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) ===
+        # RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) 
         # - min 2 caractères
         # - mois détecté en AND avec le texte ("concert juillet" = concerts DE juillet)
         # - stemming français : "festivals" trouve "festival"
@@ -300,7 +294,7 @@ class EventViewSet(viewsets.ModelViewSet):
             except (ValueError, TypeError):
                 pass
 
-        # === FILTRAGE PAR RÔLE ===
+        # FILTRAGE PAR RÔLE 
 
         if not user.is_authenticated:
             qs = qs.filter(statut='publie', is_valide=True)
@@ -324,7 +318,7 @@ class EventViewSet(viewsets.ModelViewSet):
             else:
                 qs = qs.filter(statut='publie', is_valide=True)
 
-        # === EXCLURE LES EVENTS PASSES PAR DEFAUT ===
+        # EXCLURE LES EVENTS PASSES PAR DEFAUT 
         include_past = params.get('include_past') == 'true'
         is_mes_events = params.get('mes_events') == 'true'
         is_mes_brouillons = params.get('mes_brouillons') == 'true'
@@ -334,7 +328,7 @@ class EventViewSet(viewsets.ModelViewSet):
             now = timezone.now()
             qs = qs.filter(date_evenement__gte=now)
 
-        # === TRI ===
+        # TRI 
         sort = params.get('sort')
 
         if sort == 'date_asc':
@@ -620,7 +614,7 @@ class EventViewSet(viewsets.ModelViewSet):
             mes_events.filter(statut='publie').values_list('id', flat=True)
         )
 
-        # === VUES (semaine vs semaine précédente) ===
+        # VUES (semaine vs semaine précédente) 
         views_qs = EventView.objects.filter(event_id__in=event_ids)
         total_views = views_qs.count()
         views_w1 = views_qs.filter(viewed_at__gte=week_ago).count()
@@ -628,7 +622,7 @@ class EventViewSet(viewsets.ModelViewSet):
             viewed_at__gte=two_weeks_ago, viewed_at__lt=week_ago
         ).count()
 
-        # === RÉSERVATIONS CONFIRMÉES ===
+        # RÉSERVATIONS CONFIRMÉES 
         resa_qs = Reservation.objects.filter(
             event_id__in=event_ids, statut='confirmee'
         )
@@ -645,14 +639,14 @@ class EventViewSet(viewsets.ModelViewSet):
             date_reservation__gte=two_weeks_ago, date_reservation__lt=week_ago
         ))
 
-        # === REVENUS (mois vs mois précédent) ===
+        # REVENUS (mois vs mois précédent) 
         total_revenue = revenue(resa_qs)
         rev_m1 = revenue(resa_qs.filter(date_reservation__gte=month_ago))
         rev_m0 = revenue(resa_qs.filter(
             date_reservation__gte=two_months_ago, date_reservation__lt=month_ago
         ))
 
-        # === TAUX DE REMPLISSAGE (sur les events publiés uniquement) ===
+        # TAUX DE REMPLISSAGE (sur les events publiés uniquement)
         published = mes_events.filter(statut='publie')
         total_capacite = sum(e.capacite_totale or 0 for e in published)
 
@@ -853,10 +847,8 @@ class EventViewSet(viewsets.ModelViewSet):
         return Response({'status': 'refusé', 'motif': event.motif_refus})
 
 
-# ============================================================
 # ViewSet pour les catégories
 # Lecture publique, écriture réservée aux administrateurs.
-# ============================================================
 class CategorieViewSet(viewsets.ModelViewSet):
     serializer_class = CategorieSerializer
 
@@ -932,25 +924,21 @@ class CategorieViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Proposition supprimée.', 'deleted': True})
 
 
-# ============================================================
 # ViewSet pour les tags
-# ============================================================
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [permissions.AllowAny]
 
 
-# ============================================================
 # ViewSet pour les réservations
-# ============================================================
 class ReservationViewSet(viewsets.ModelViewSet):
     """CRUD des réservations pour le user connecté."""
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'post', 'head', 'options']  # pas de put/patch/delete direct
 
     def get_queryset(self):
-        # Un user ne voit que SES réservations (l'admin voit tout via /admin/ si besoin)
+        # Un user ne voit que SES réservations 
         return Reservation.objects.filter(user=self.request.user) \
             .select_related('event', 'event__categorie', 'event__organisateur') \
             .prefetch_related('items', 'items__type_billet')
@@ -986,7 +974,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         )
 
     # GET /api/reservations/{id}/tickets-pdf/
-    # Placeholder : renvoie les infos billets en JSON pour l'instant (PDF plus tard)
+    # Placeholder : renvoie les infos billets en JSON 
     @action(detail=True, methods=['get'], url_path='tickets-pdf')
     def tickets_pdf(self, request, pk=None):
         reservation = self.get_object()
@@ -1005,9 +993,9 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'total': str(reservation.total_prix),
             'detail': 'Génération PDF à venir. Pour l\'instant, imprime cette page.',
         })
-        # ============================================================
+        
+        
 # ViewSet pour les favoris
-# ============================================================
 class FavoriViewSet(viewsets.ViewSet):
     """Gestion des favoris du user connecté."""
     permission_classes = [permissions.IsAuthenticated]
@@ -1019,7 +1007,7 @@ class FavoriViewSet(viewsets.ViewSet):
             .prefetch_related('event__tags', 'event__types_billets')
         events = [f.event for f in favoris]
 
-        # Pré-charge les ids favoris pour que is_favori soit True sans requête en plus
+        # Pré-charge les id favoris pour que is_favori soit True sans requête en plus
         request._favori_ids = {e.id for e in events}
 
         serializer = EventListSerializer(events, many=True, context={'request': request})
@@ -1051,9 +1039,7 @@ class FavoriViewSet(viewsets.ViewSet):
             status=status.HTTP_200_OK,
         ) 
     
-# ============================================================
 # Fidélité
-# ============================================================
 from .fidelite import get_palier_info
 
 class FideliteView(APIView):
@@ -1062,9 +1048,7 @@ class FideliteView(APIView):
 
     def get(self, request):
         return Response(get_palier_info(request.user))      
-# ============================================================
 # Notifications
-# ============================================================
 from .models import Notification
 from .serializers import NotificationSerializer
 

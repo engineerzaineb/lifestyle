@@ -137,7 +137,7 @@ export default function CTAFinal({
   );
 }
 
-/* Helper */
+// Helper pour capitaliser la première lettre d'une chaîne
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }

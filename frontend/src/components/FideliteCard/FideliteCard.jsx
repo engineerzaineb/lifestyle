@@ -3,7 +3,7 @@ import { Award } from "lucide-react";
 import { fetchMonPalier } from "../../services/fideliteService";
 import styles from "./FideliteCard.module.css";
 
-/* Labels avec accents (le backend renvoie des noms sans accents) */
+// Labels avec accents (le backend renvoie des noms sans accents) 
 const LABELS = {
   Membre: "Membre",
   Silver: "Silver",

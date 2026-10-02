@@ -360,9 +360,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
         return instance
 
 
-# ============================================================
 # RÉSERVATIONS
-# ============================================================
 
 class ReservationItemReadSerializer(serializers.ModelSerializer):
     type_billet_nom = serializers.CharField(source='type_billet.nom', read_only=True)
@@ -455,8 +453,7 @@ class ReservationCreateSerializer(serializers.Serializer):
                     .filter(pk__in=billet_ids)
             }
 
-            # Re-vérifie le stock sous verrou, en recalculant les places réservées
-            # directement ici (on ne dépend pas d'une lecture faite hors verrou).
+            # Re-vérifie le stock sous verrou, en recalculant les places réservées directement
             for item in items_data:
                 tb = billets.get(item['type_billet'])
                 if tb is None:
@@ -473,8 +470,8 @@ class ReservationCreateSerializer(serializers.Serializer):
                     )
                 total_prix += tb.prix * item['quantite']
 
-            # === REMISE FIDELITE ===
-            # Le palier est calculé sur les réservations confirmées AVANT celle-ci
+            #REMISE FIDELITE 
+            # Le palier est calculé sur les réservations confirmées avant celle-ci
             pct = remise_fidelite_pct(user)
             montant_remise = (total_prix * Decimal(pct) / Decimal(100)).quantize(Decimal('0.01'))
             total_paye = total_prix - montant_remise

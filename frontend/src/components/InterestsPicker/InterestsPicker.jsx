@@ -3,14 +3,7 @@ import { X, Plus } from "lucide-react";
 import { fetchInterets } from "../../services/interetService";
 import styles from "./InterestsPicker.module.css";
 
-/**
- * InterestsPicker - Sélecteur de centres d'intérêt
- *
- * Props:
- * - selectedIds: number[] - IDs des intérêts officiels sélectionnés
- * - customInterets: string[] - Liste des intérêts personnalisés
- * - onChange: ({ selectedIds, customInterets }) => void
- */
+
 export default function InterestsPicker({
   selectedIds = [],
   customInterets = [],

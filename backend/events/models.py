@@ -300,7 +300,7 @@ class TypeBillet(models.Model):
             reservation__statut='confirmee'
         ).aggregate(total=Sum('quantite'))['total'] or 0
         return max(0, self.capacite - reserved)
-# === TRACKING DES VUES ===
+# TRACKING DES VUES 
 class EventView(models.Model):
     """Une vue d'un événement (pour stats organisateur)."""
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='views')
@@ -322,7 +322,7 @@ class EventView(models.Model):
         return f"View {self.event.titre} @ {self.viewed_at:%Y-%m-%d %H:%M}"
 
 
-# === RÉSERVATIONS ===
+# RÉSERVATIONS 
 class Reservation(models.Model):
     STATUT_CHOICES = (
         ('confirmee', 'Confirmée'),
@@ -374,7 +374,7 @@ class ReservationItem(models.Model):
     @property
     def sous_total(self):
         return self.prix_unitaire * self.quantite
-# === FAVORIS ===
+# FAVORIS 
 class Favori(models.Model):
     """Un favori = un lien entre un utilisateur et un événement."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favoris')
@@ -389,7 +389,7 @@ class Favori(models.Model):
     def __str__(self):
         return f"{self.user.email} ♥ {self.event.titre}"
     
-# === NOTIFICATIONS ===
+# NOTIFICATIONS
 class Notification(models.Model):
     """Une notification destinée à un utilisateur (affichée via la cloche)."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')

@@ -43,11 +43,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     current_longitude = models.DecimalField(max_digits=11, decimal_places=6, null=True, blank=True)
     last_location_update = models.DateTimeField(null=True, blank=True)
     
-    # Centres d'intérêt 
+    # centres d'intérêt 
     interets = models.ManyToManyField(
-        'Interet',
+        'events.Categorie',
         blank=True,
-        related_name='users',
+        related_name='users_interesses',
     )
 
     is_active = models.BooleanField(default=True)
@@ -74,22 +74,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_utilisateur(self):
         return self.role == 'utilisateur'
 
-    # Indique si l'utilisateur a partagé sa position
+    # indique si l'utilisateur a partagé sa position
     @property
     def has_location(self):
         return self.current_latitude is not None and self.current_longitude is not None
 
-    # Met à jour la position actuelle et ajoute à l'historique
+    # mettre à jour la position actuelle et ajouter à l'historique
     def update_location(self, latitude, longitude, source='login'):
         from django.utils import timezone
 
-        # Met à jour la position actuelle
+        # Mettre à jour la position actuelle
         self.current_latitude = latitude
         self.current_longitude = longitude
         self.last_location_update = timezone.now()
         self.save()
 
-        # Ajoute une entrée dans l'historique
+        # Ajouter une entrée dans l'historique
         UserLocation.objects.create(
             user=self,
             latitude=latitude,
@@ -128,7 +128,7 @@ class UserLocation(models.Model):
         return f"{self.user.email} - ({self.latitude}, {self.longitude}) - {self.detected_at}"
 
 
-# Modèle pour les centres d'intérêt 
+# Modèle pour les centres d'intéret 
 class Interet(models.Model):
     nom = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=60, unique=True, blank=True)
@@ -149,7 +149,9 @@ class Interet(models.Model):
 
     def __str__(self):
         return f"{self.icone} {self.nom}" if self.icone else self.nom
-# === Demande pour devenir organisateur ===
+    
+    
+# Demande pour devenir organisateur 
 class DemandeOrganisateur(models.Model):
     STATUT_CHOICES = (
         ('en_attente', 'En attente'),

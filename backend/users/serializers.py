@@ -7,13 +7,12 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 
-
+from events.models import Categorie
 # Serializer pour un centre d'intérêt
 class InteretSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Interet
-        fields = ['id', 'nom', 'slug', 'icone', 'is_official']
-        read_only_fields = ['id', 'slug', 'is_official']
+        model = Categorie
+        fields = ['id', 'nom', 'slug', 'icone', 'couleur']
 
 
 # Serializer pour une entrée d'historique de position
@@ -100,19 +99,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             'ville': {'required': False, 'allow_blank': True},
         }
 
-    # Validation : email unique et en minuscules
+    # validation : email unique et en minuscules
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
             raise serializers.ValidationError("Cet email est déjà utilisé.")
         return value.lower()
 
-    # Validation : latitude entre -90 et 90
+    # validation : latitude entre -90 et 90
     def validate_latitude(self, value):
         if value is not None and (value < -90 or value > 90):
             raise serializers.ValidationError("La latitude doit être entre -90 et 90.")
         return value
 
-    # Validation : longitude entre -180 et 180
+    # validation : longitude entre -180 et 180
     def validate_longitude(self, value):
         if value is not None and (value < -180 or value > 180):
             raise serializers.ValidationError("La longitude doit être entre -180 et 180.")

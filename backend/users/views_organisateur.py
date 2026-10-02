@@ -12,7 +12,7 @@ from .serializers import (
 )
 
 
-# === CÔTÉ USER ===
+# COTÉ USER
 
 class DemandeOrganisateurView(APIView):
     """Gère ma demande d'organisateur (créer/voir/annuler)"""
@@ -70,7 +70,7 @@ class DemandeOrganisateurView(APIView):
             return Response({'detail': 'Aucune demande'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# === CÔTÉ ADMIN ===
+# CÔTÉ ADMIN 
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):

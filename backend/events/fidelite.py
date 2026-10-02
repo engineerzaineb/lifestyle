@@ -1,7 +1,9 @@
 """Système de fidélité : paliers et remises calculés depuis les réservations.
 
 Le palier n'est jamais stocké : il est dérivé du nombre de réservations
-confirmées du user. Impossible d'avoir une incohérence.
+confirmées du user. Le palier est recalculé à chaque fois qu'on en a besoin, et la remise est appliquée au moment de payer. Cela permet de ne pas avoir à gérer de
+synchronisation entre le nombre de réservations et le palier stocké, et de ne pas avoir à recalculer la remise à chaque changement de palier.
+Le palier est calculé à partir de la liste PALIERS, qui contient les paliers ordonnés du plus haut au plus bas, avec le seuil minimum de réservations pour atteindre le palier, le nom du palier, le pourcentage de remise et la couleur associée.  
 """
 
 # Paliers ordonnés du plus haut au plus bas : (seuil_min, nom, remise_pct, couleur)
@@ -24,7 +26,7 @@ def get_palier_info(user):
     """Renvoie le palier complet du user + sa progression vers le suivant."""
     nb = compter_reservations_confirmees(user)
 
-    # Trouve le palier actuel (le premier dont le seuil est atteint)
+    # Trouver le palier actuel (le premier dont le seuil est atteint)
     for i, (seuil, nom, remise, couleur) in enumerate(PALIERS):
         if nb >= seuil:
             palier_actuel = {'nom': nom, 'remise_pct': remise, 'couleur': couleur, 'seuil': seuil}

@@ -2,13 +2,7 @@ import { useState } from "react";
 import { MapPin, Check, AlertCircle, X } from "lucide-react";
 import styles from "./LocationPermissionModal.module.css";
 
-/**
- * LocationPermissionModal - Popup custom pour demander la permission de localisation
- *
- * Props :
- * - onAllow : (position) => void - appelée si l'utilisateur accepte ET la géoloc fonctionne
- * - onDeny : () => void - appelée si l'utilisateur refuse
- */
+
 export default function LocationPermissionModal({ onAllow, onDeny }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
