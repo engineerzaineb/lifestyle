@@ -1,0 +1,87 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.optional {
+  color: var(--color-text-subtle);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.counter {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.counterMax {
+  color: var(--color-danger);
+}
+
+.wrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.wrapper.error {
+  border-color: var(--color-danger);
+}
+
+.textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--color-text);
+  background: transparent;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.5;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.errorMsg {
+  font-size: 11px;
+  color: var(--color-danger);
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 2px 0 0;
+}

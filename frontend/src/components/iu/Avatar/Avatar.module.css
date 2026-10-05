@@ -1,0 +1,44 @@
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.xs { width: 24px; height: 24px; font-size: 10px; }
+.sm { width: 32px; height: 32px; font-size: 12px; }
+.md { width: 40px; height: 40px; font-size: 14px; }
+.lg { width: 56px; height: 56px; font-size: 18px; }
+.xl { width: 72px; height: 72px; font-size: 24px; }
+
+.primary { background: linear-gradient(135deg, var(--color-primary), #6366F1); }
+.pink { background: linear-gradient(135deg, var(--color-pink), #F472B6); }
+.coral { background: linear-gradient(135deg, var(--color-coral), #FB923C); }
+.success { background: linear-gradient(135deg, var(--color-success), #22C55E); }
+
+.statusDot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 25%;
+  height: 25%;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+}
+
+.statusOnline { background: var(--color-success); }
+.statusBusy { background: var(--color-danger); }
+.statusAway { background: var(--color-warning); }

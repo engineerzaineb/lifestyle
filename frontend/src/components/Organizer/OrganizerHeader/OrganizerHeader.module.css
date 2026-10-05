@@ -1,0 +1,151 @@
+.header {
+  background: linear-gradient(
+    180deg,
+    var(--color-coral-light) 0%,
+    var(--color-bg) 100%
+  );
+  padding: 36px 24px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.blob {
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.20), transparent 70%);
+  filter: blur(60px);
+  animation: blob 12s ease-in-out infinite;
+  z-index: 0;
+}
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   TOP : titre + bouton créer
+   ============================================================ */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  flex: 1;
+  min-width: 280px;
+}
+
+.title {
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -1px;
+  margin: 0 0 4px;
+  color: var(--color-text);
+}
+
+.titleEm {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: linear-gradient(135deg, var(--color-coral), var(--color-pink));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.createBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(249, 115, 22, 0.4);
+}
+
+/* ============================================================
+   STATS RAPIDES
+   ============================================================ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.statCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-coral);
+}
+
+.statLabel {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -0.5px;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1;
+}
+
+.statSuffix {
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 24px 20px 20px;
+  }
+  .createBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}

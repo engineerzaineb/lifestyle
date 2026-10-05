@@ -1,0 +1,112 @@
+/* ============================================================
+   Stats — section avec chiffres clés animés
+   ============================================================ */
+.section {
+  padding: 60px 24px;
+  background: var(--color-surface);
+}
+
+.grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 24px;
+}
+
+/* ============================================================
+   ITEM
+   ============================================================ */
+.item {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   ICÔNE
+   ============================================================ */
+.iconWrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.item:hover .iconWrapper {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+/* Variantes de couleur */
+.iconPrimary {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.iconPink {
+  background: var(--color-pink-light);
+  color: var(--color-pink);
+}
+
+.iconCoral {
+  background: var(--color-coral-light);
+  color: var(--color-coral);
+}
+
+.iconWarning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* ============================================================
+   VALEUR (le grand chiffre)
+   ============================================================ */
+.value {
+  font-size: clamp(32px, 4vw, 46px);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  margin: 0 0 4px;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+/* ============================================================
+   LABEL
+   ============================================================ */
+.label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 480px) {
+  .section {
+    padding: 40px 20px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .iconWrapper {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 10px;
+  }
+}

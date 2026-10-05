@@ -1,0 +1,196 @@
+/* ============================================================
+   CTAFinal — section finale d'appel à l'action
+   ============================================================ */
+.section {
+  padding: 120px 24px;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-light) 0%,
+    var(--color-pink-light) 50%,
+    var(--color-coral-light) 100%
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+.inner {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   PARTICULES FLOTTANTES
+   ============================================================ */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.3;
+  pointer-events: none;
+  animation: float 6s ease-in-out infinite;
+}
+
+.particlePrimary { background: var(--color-primary); }
+.particlePink { background: var(--color-pink); }
+.particleCoral { background: var(--color-coral); }
+
+/* ============================================================
+   BADGE (optionnel en haut)
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  margin-bottom: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  animation: fadeUp 0.6s ease-out 0.1s both;
+}
+
+.badgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-coral);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   TITRE
+   ============================================================ */
+.title {
+  font-size: clamp(36px, 6vw, 60px);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -2px;
+  line-height: 1.1;
+  margin: 0 0 22px;
+  color: var(--color-text);
+  animation: fadeUp 0.8s ease-out 0.2s both;
+}
+
+.titleHighlight {
+  font-style: italic;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-pink),
+    var(--color-coral)
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+/* ============================================================
+   SOUS-TITRE
+   ============================================================ */
+.subtitle {
+  font-size: 18px;
+  color: var(--color-text-muted);
+  max-width: 540px;
+  margin: 0 auto 40px;
+  line-height: 1.6;
+  animation: fadeUp 0.8s ease-out 0.3s both;
+}
+
+/* ============================================================
+   BOUTONS
+   ============================================================ */
+.actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.8s ease-out 0.4s both;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background: var(--color-text);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+
+.btnPrimary:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1.5px solid var(--color-text);
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: all 0.25s;
+}
+
+.btnSecondary:hover {
+  background: var(--color-text);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   PETITE NOTE EN BAS
+   ============================================================ */
+.note {
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  animation: fadeUp 0.8s ease-out 0.5s both;
+}
+
+.noteIcon {
+  color: var(--color-success);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .section { padding: 80px 20px; }
+  .subtitle { font-size: 16px; margin-bottom: 32px; }
+  .actions { gap: 10px; }
+  .btnPrimary,
+  .btnSecondary {
+    padding: 14px 24px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,525 @@
+/* ============================================================
+   Register — page d'inscription
+   ============================================================ */
+.page {
+  min-height: calc(100vh - 200px);
+  background: var(--color-bg);
+  padding: 40px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 560px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+}
+
+/* ============================================================
+   STEPS PROGRESS (indicateur d'étape)
+   ============================================================ */
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.stepDot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border: 2px solid var(--color-border);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.stepDot.active {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+.stepDot.completed {
+  background: var(--color-success);
+  color: white;
+  border-color: transparent;
+}
+
+.stepLine {
+  width: 40px;
+  height: 2px;
+  background: var(--color-border);
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+
+.stepLine.completed {
+  background: var(--color-success);
+}
+
+/* ============================================================
+   TITRE
+   ============================================================ */
+.title {
+  font-size: 32px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -1px;
+  text-align: center;
+  margin: 0 0 8px;
+  color: var(--color-text);
+}
+
+.titleEm {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0 0 32px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   ÉTAPE 1 — CHOIX DU RÔLE
+   ============================================================ */
+.roleGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.roleCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.roleCard:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  transform: translateX(4px);
+}
+
+.roleCard.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.15);
+}
+
+.roleIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.roleIconUser {
+  background: linear-gradient(135deg, var(--color-primary), #6366F1);
+}
+
+.roleIconOrganizer {
+  background: linear-gradient(135deg, var(--color-coral), #FB923C);
+}
+
+.roleIconBoth {
+  background: linear-gradient(135deg, var(--color-pink), var(--color-primary));
+}
+
+.roleInfo {
+  flex: 1;
+}
+
+.roleTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--color-text);
+}
+
+.roleDesc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.roleCheck {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.roleCard.selected .roleCheck {
+  opacity: 1;
+}
+
+/* ============================================================
+   ÉTAPE 2 — FORMULAIRE
+   ============================================================ */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.optional {
+  color: var(--color-text-subtle);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  height: 44px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inputWrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.inputWrapper.error {
+  border-color: var(--color-danger);
+}
+
+.inputIcon {
+  color: var(--color-text-muted);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--color-text);
+  background: transparent;
+  min-width: 0;
+}
+
+.inputBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.inputBtn:hover {
+  color: var(--color-primary);
+}
+
+.errorMsg {
+  font-size: 11px;
+  color: var(--color-danger);
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+
+/* ============================================================
+   FORCE DU MOT DE PASSE
+   ============================================================ */
+.passwordStrength {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.strengthBar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-border);
+  transition: background 0.3s;
+}
+
+.strengthBar.active1 { background: var(--color-danger); }
+.strengthBar.active2 { background: var(--color-warning); }
+.strengthBar.active3 { background: var(--color-success); }
+
+.strengthLabel {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* ============================================================
+   CHECKBOX CGU
+   ============================================================ */
+.cguWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--color-border-strong);
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  margin-top: 1px;
+}
+
+.checkbox.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.cguText {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.cguLink {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cguLink:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   BOUTONS NAVIGATION
+   ============================================================ */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.btnBack {
+  padding: 12px 20px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.btnBack:hover {
+  background: var(--color-surface-alt);
+}
+
+.btnContinue {
+  flex: 1;
+  padding: 12px 20px;
+  background: var(--color-text);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.btnContinue:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+}
+
+.btnContinue:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnGradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+/* ============================================================
+   LIEN VERS LOGIN
+   ============================================================ */
+.loginLink {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.loginLink a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.loginLink a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   ÉTAPE 3 — SUCCÈS
+   ============================================================ */
+.success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.successIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-success), #22C55E);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  box-shadow: 0 10px 30px rgba(22, 163, 74, 0.3);
+  animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.successTitle {
+  font-size: 28px;
+  font-weight: 400;
+  font-family: var(--font-serif);
+  margin: 0 0 12px;
+  color: var(--color-text);
+}
+
+.successDesc {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .container {
+    padding: 28px 22px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .stepLine {
+    width: 24px;
+  }
+}
+.infoBox {
+  padding: 12px 14px;
+  background: rgba(79, 70, 229, 0.05);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: var(--radius-md);
+  margin-top: 8px;
+}

@@ -1,0 +1,151 @@
+.hero {
+  position: relative;
+  padding: 60px 24px 40px;
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-light) 0%,
+    var(--color-bg) 100%
+  );
+  overflow: hidden;
+}
+
+.blob1, .blob2 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+  z-index: 0;
+}
+
+.blob1 {
+  top: -80px;
+  right: -60px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.20), transparent 70%);
+  animation: blob 12s ease-in-out infinite;
+}
+
+.blob2 {
+  bottom: -100px;
+  left: -80px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.18), transparent 70%);
+  animation: blob 14s ease-in-out 2s infinite;
+}
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.title {
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  letter-spacing: -1px;
+  margin: 0 0 8px;
+  color: var(--color-text);
+}
+
+.titleEm {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin: 0 0 24px;
+}
+
+.searchBar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 5px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+  max-width: 800px;
+}
+
+.searchInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 0 14px;
+  min-width: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  padding: 12px 0;
+  background: transparent;
+  color: var(--color-text);
+  min-width: 0;
+  font-family: inherit;
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 4px;
+  display: flex;
+  border-radius: 4px;
+}
+
+.clearBtn:hover {
+  color: var(--color-text);
+}
+
+.searchBtn {
+  padding: 11px 22px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.searchBtn:hover {
+  transform: scale(1.03);
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 40px 20px 30px;
+  }
+
+  .searchBar {
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .searchBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}
