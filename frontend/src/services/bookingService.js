@@ -1,6 +1,6 @@
 import api from "./api";
 
-/*crée une sélection vide pour un événement*/
+//crée une sélection vide pour un événement
 export function createEmptySelection(tickets) {
   if (!tickets) return {};
   const sel = {};
@@ -10,20 +10,20 @@ export function createEmptySelection(tickets) {
   return sel;
 }
 
-/*met à jour la quantité d'un billet dans la sélection*/
+//met à jour la quantité d'un billet dans la sélection
 export function updateQuantity(selection, ticketKey, delta, maxPerTicket = 10) {
   const current = selection[ticketKey] || 0;
   const newValue = Math.max(0, Math.min(maxPerTicket, current + delta));
   return { ...selection, [ticketKey]: newValue };
 }
 
-/*compte le nombre total de billets sélectionnés*/
+//compte le nombre total de billets sélectionnés
 export function getTotalQuantity(selection) {
   if (!selection) return 0;
   return Object.values(selection).reduce((sum, q) => sum + (q || 0), 0);
 }
 
-/*calcule le prix total de la sélection*/
+//calcule le prix total de la sélection
 export function calculateTotal(selection, tickets) {
   if (!tickets || !selection) return 0;
 
@@ -35,7 +35,7 @@ export function calculateTotal(selection, tickets) {
   }, 0);
 }
 
-/*calcule l'économie réalisée (si bons plans)*/
+//calcule l'économie réalisée (si bons plans)
 export function calculateSavings(selection, tickets) {
   if (!tickets || !selection) return 0;
 
@@ -49,12 +49,12 @@ export function calculateSavings(selection, tickets) {
   }, 0);
 }
 
-/*vérifie si la sélection est valide pour réserver*/
+//vérifie si la sélection est valide pour réserver
 export function isSelectionValid(selection) {
   return getTotalQuantity(selection) > 0;
 }
 
-/*format de la sélection pour l'API*/
+//format de la sélection pour l'API
 export function formatSelectionForAPI(selection, tickets) {
   if (!tickets || !selection) return [];
   return tickets
@@ -71,7 +71,7 @@ export function formatSelectionForAPI(selection, tickets) {
     .filter(Boolean);
 }
 
-/*crée une réservation via l'API*/
+//crée une réservation via l'API
 export async function createReservation(eventId, selection, tickets) {
   const payload = {
     event_id: eventId,

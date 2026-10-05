@@ -44,9 +44,7 @@ export async function register(userData) {
   return data;
 }
 
-/**
- * Déconnexion utilisateur (blacklist le refresh token côté backend)
- */
+// Déconnexion utilisateur (blacklist le refresh token côté backend)
 export async function logout() {
   if (USE_MOCK) {
     return { success: true };
@@ -69,9 +67,7 @@ export async function logout() {
   }
 }
 
-/**
- * Récupère l'utilisateur actuellement connecté
- */
+// Récupère l'utilisateur actuellement connecté
 export async function getCurrentUser() {
   if (USE_MOCK) {
     return null;
@@ -151,9 +147,7 @@ export async function createDemandeOrganisateur(demandeData) {
   return data;
 }
 
-/**
- * Annule ma demande d'organisateur (seulement si en_attente)
- */
+// Annule ma demande d'organisateur (seulement si en_attente)
 export async function cancelMyDemandeOrganisateur() {
   if (USE_MOCK) {
     return { detail: "Demande annulée" };
@@ -162,9 +156,8 @@ export async function cancelMyDemandeOrganisateur() {
   const { data } = await api.delete("/auth/demande-organisateur/");
   return data;
 }
-/**
- * Demande de réinitialisation du mot de passe (à implémenter plus tard)
- */
+// Demande de réinitialisation du mot de passe 
+ 
 export async function requestPasswordReset(email) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 500));
@@ -198,7 +191,7 @@ export async function changePassword(oldPassword, newPassword) {
 }
 
 
-/** Applique le nouveau mot de passe à partir du lien reçu par email */
+// Applique le nouveau mot de passe à partir du lien reçu par email 
 export async function confirmPasswordReset(uid, token, newPassword) {
   const { data } = await api.post("/auth/password-reset/confirm/", {
     uid,

@@ -1,4 +1,4 @@
-/*crée un nouveau billet vide avec les valeurs par défaut*/
+// crée un nouveau billet vide avec les valeurs par défaut
 export function createEmptyTicket(defaults = {}) {
   return {
     nom: "",
@@ -147,7 +147,7 @@ export function hasBonPlan(tickets) {
   return tickets.some((t) => t.is_bon_plan && t.pourcentage_reduction > 0);
 }
 
-/*retourne le pourcentage maximum de réduction parmi tous les billets*/
+//retourne le pourcentage maximum de réduction parmi tous les billets
 export function getMaxReduction(tickets) {
   if (!tickets || tickets.length === 0) return 0;
   const reductions = tickets

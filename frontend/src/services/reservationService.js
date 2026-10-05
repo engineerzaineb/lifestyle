@@ -17,7 +17,7 @@ function normalizeReservation(r) {
     event: r.event ? { ...r.event, cover: r.event.image_url } : r.event,
   };
 }
-/*récupere toutes les réservations de l'utilisateur connecté*/
+// récupere toutes les réservations de l'utilisateur connecté
 export async function fetchMyReservations() {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));
@@ -30,7 +30,7 @@ export async function fetchMyReservations() {
   return list.map(normalizeReservation);
 }
 
-/*récupere une réservation par ID*/
+// récupere une réservation par ID
 export async function fetchReservation(id) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 300));
@@ -44,7 +44,7 @@ export async function fetchReservation(id) {
 
 
 
-/*onglets de filtrage par période/statut*/
+// onglets de filtrage par période/statut
 export const RESERVATION_TABS = [
   { id: "all", label: "Toutes", filter: null },
   { id: "upcoming", label: "À venir", filter: "upcoming", color: "success" },
@@ -52,7 +52,7 @@ export const RESERVATION_TABS = [
   { id: "cancelled", label: "Annulées", filter: "cancelled", color: "danger" },
 ];
 
-/*filtrer les réservations selon l'onglet*/
+//filtrer les réservations selon l'onglet
 export function filterByReservationTab(reservations, tabId) {
   if (!reservations) return [];
 
@@ -81,7 +81,7 @@ export function filterByReservationTab(reservations, tabId) {
   return reservations;
 }
 
-/*compter les réservations par onglet*/
+// compter les réservations par onglet
 export function countByReservationTab(reservations) {
   if (!reservations) return {};
 
@@ -93,9 +93,9 @@ export function countByReservationTab(reservations) {
   };
 }
 
-/*statistiques globales*/
+//statistiques globales
 
-/*calculer les stats globales de l'utilisateur*/
+// calculer les stats globales de l'utilisateur
 export function calculateUserStats(reservations) {
   if (!reservations || reservations.length === 0) {
     return {
@@ -161,7 +161,7 @@ export function canCancelReservation(reservation) {
 
 
 
-/*Annule une réservation*/
+// Annule une réservation
 export async function cancelReservation(reservationId, reason = "") {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 500));
@@ -172,7 +172,7 @@ export async function cancelReservation(reservationId, reason = "") {
   return data;
 }
 
-/*Télécharge les billets (PDF) */
+// Télécharge les billets (PDF) 
 export async function downloadTickets(reservationId) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 800));

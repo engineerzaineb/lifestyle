@@ -1,6 +1,5 @@
 import api from "./api";
 
-// Backend branché : actions duplicate / cancel / publish ajoutées au EventViewSet
 const USE_MOCK = false;
 
 
@@ -19,7 +18,7 @@ export async function fetchMyEvents() {
   return data.results || [];
 }
 
-/*génère des événements avec des statuts variés */
+// génère des événements avec des statuts variés 
 function generateMockOrganizerEvents(baseEvents) {
   // Variations de statuts pour avoir des brouillons, publiés, etc.
   const statuses = ["publie", "brouillon", "en_attente", "brouillon", "brouillon", "termine"];
@@ -36,7 +35,7 @@ function generateMockOrganizerEvents(baseEvents) {
 
 
 
-/*liste des onglets de filtrage par statut*/
+// liste des onglets de filtrage par statut
 export const STATUS_TABS = [
   { id: "all", label: "Tous", statuses: null },
   { id: "publie", label: "Publiés", statuses: ["publie"], color: "success" },
@@ -59,7 +58,7 @@ export function filterByStatusTab(events, tabId) {
   return events.filter((e) => tab.statuses.includes(e.statut));
 }
 
-/*Compte les événements par catégorie de statut*/
+// Compte les événements par catégorie de statut
 export function countByStatus(events) {
   if (!events) return {};
   const counts = { all: events.length };
@@ -74,7 +73,7 @@ export function countByStatus(events) {
 }
 
 
-/*Calcule les stats globales de l'organisateur*/
+// Calcule les stats globales de l'organisateur
 export function calculateGlobalStats(events) {
   if (!events || events.length === 0) {
     return {
@@ -128,7 +127,7 @@ export function searchEvents(events, query) {
   );
 }
 
-/*options de tri pour la page OrganizerEvents*/
+//options de tri pour la page OrganizerEvents
 export const ORGANIZER_SORT_OPTIONS = [
   { value: "recent", label: "Plus récents" },
   { value: "oldest", label: "Plus anciens" },
@@ -137,7 +136,7 @@ export const ORGANIZER_SORT_OPTIONS = [
   { value: "date_event", label: "Date événement" },
 ];
 
-/*trie les événements selon le critère choisi*/
+//trie les événements selon le critère choisi
 export function sortOrganizerEvents(events, sortBy) {
   if (!events) return [];
   const sorted = [...events];
@@ -158,7 +157,7 @@ export function sortOrganizerEvents(events, sortBy) {
 }
 
 
-/*retourne le label et la couleur d'un statut*/
+//retourne le label et la couleur d'un statut
 export function getStatusDisplay(statut) {
   const map = {
     publie: { label: "Publié", color: "success" },
@@ -171,7 +170,7 @@ export function getStatusDisplay(statut) {
   return map[statut] || { label: statut, color: "neutral" };
 }
 
-/*liste des actions disponibles selon le statut de l'événement*/
+// liste des actions disponibles selon le statut de l'événement
 export function getAvailableActions(statut) {
   const actions = {
     publie: ["view", "edit", "duplicate", "stats", "cancel"],
@@ -185,7 +184,7 @@ export function getAvailableActions(statut) {
 }
 
 
-/*supprime un événement*/
+//supprime un événement
 export async function deleteMyEvent(eventId) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));
@@ -196,7 +195,7 @@ export async function deleteMyEvent(eventId) {
   return { success: true };
 }
 
-/*duplique un événement */
+// duplique un événement 
 export async function duplicateEvent(eventId) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));
@@ -207,7 +206,7 @@ export async function duplicateEvent(eventId) {
   return data;
 }
 
-/*annule un événement publié*/
+//annule un événement publié
 export async function cancelEvent(eventId, reason = "") {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));
@@ -218,7 +217,7 @@ export async function cancelEvent(eventId, reason = "") {
   return data;
 }
 
-/*publie un brouillon */
+// publie un brouillon 
 export async function publishDraft(eventId) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));

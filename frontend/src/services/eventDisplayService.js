@@ -1,6 +1,6 @@
 import { CATEGORIES } from "../utils/constants";
 
-/*détermine le statut d'affichage d'un événement*/
+//détermine le statut d'affichage d'un événement
 export function getEventDisplayStatus(event) {
   if (!event) return "upcoming";
 
@@ -17,7 +17,7 @@ export function getEventDisplayStatus(event) {
   return "upcoming";
 }
 
-/*retourne les infos visuelles d'un statut*/
+//retourne les infos visuelles d'un statut
 export function getStatusBadge(status) {
   const badges = {
     upcoming: { label: "À venir", variant: "info" },
@@ -29,7 +29,7 @@ export function getStatusBadge(status) {
   return badges[status] || badges.upcoming;
 }
 
-/*message d'urgence selon les places restantes*/
+//message d'urgence selon les places restantes
 export function getUrgencyMessage(event) {
   const total = event.capacite_totale || 0;
   const restantes = event.places_restantes;
@@ -41,7 +41,7 @@ export function getUrgencyMessage(event) {
   return null;
 }
 
-/*pourcentage de remplissage */
+// pourcentage de remplissage 
 export function getFillPercentage(event) {
   const total = event.capacite_totale || 0;
   const restantes = event.places_restantes;
@@ -49,7 +49,7 @@ export function getFillPercentage(event) {
   return Math.round(((total - restantes) / total) * 100);
 }
 
-/*récupère les infos de catégorie */
+// récupère les infos de catégorie 
 export function getCategoryInfo(event) {
   const slug = event?.categorie?.slug;
   if (!slug) return { nom: "Autre", emoji: "✨", color: "var(--color-primary)" };
@@ -66,7 +66,7 @@ export function getCategoryInfo(event) {
   return cat;
 }
 
-/*génère le titre formatté pour le partage*/
+//génère le titre formatté pour le partage
 export function getShareInfo(event) {
   if (!event) return { title: "", text: "", url: "" };
 
@@ -77,7 +77,7 @@ export function getShareInfo(event) {
   };
 }
 
-/*calcule la durée en minutes entre date_evenement et date_fin*/
+// calcule la durée en minutes entre date_evenement et date_fin
 export function getDurationMinutes(event) {
   if (!event.date_evenement || !event.date_fin) return null;
   const start = new Date(event.date_evenement);
@@ -85,7 +85,7 @@ export function getDurationMinutes(event) {
   return Math.round((end - start) / (1000 * 60));
 }
 
-/*formate la durée en texte */
+//formate la durée en texte 
 export function formatDuration(minutes) {
   if (!minutes || minutes <= 0) return "";
   const hours = Math.floor(minutes / 60);
@@ -95,13 +95,13 @@ export function formatDuration(minutes) {
   return `${hours}h${mins.toString().padStart(2, "0")}`;
 }
 
-/*construit l'URL Google Maps pour un événement*/
+//construit l'URL Google Maps pour un événement
 export function getMapUrl(event) {
   const query = encodeURIComponent(`${event.lieu}, ${event.ville}, Tunisia`);
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
-/*construit l'URL "Ajouter au calendrier" Google*/
+//construit l'URL "Ajouter au calendrier" Google
 export function getCalendarUrl(event) {
   if (!event.date_evenement) return "";
 

@@ -27,7 +27,7 @@ export const SORT_OPTIONS = [
   { value: "popular", label: "Plus populaire" },
 ];
 
-// Lit les filtres depuis l'URL (les listes sont séparées par virgule)
+// Lit les filtres depuis l'URL 
 export function parseFiltersFromUrl(searchParams) {
   const filters = getDefaultFilters();
 
