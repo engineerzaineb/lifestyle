@@ -1,6 +1,6 @@
 import api from "./api";
 
-// Mode mock désactivé : on parle au vrai backend
+// Mode mock désactivé : 
 const USE_MOCK = false;
 
 // Récupère la liste des événements avec filtres optionnels
@@ -17,17 +17,19 @@ export async function fetchEvent(id) {
   return data;
 }
 
-// Recommandations personnalisées : intérêts + ville
+// Recommandations personnalisées.
 export async function fetchRecommendations() {
   if (USE_MOCK) return { results: [], count: 0 };
-  const { data } = await api.get("/events/recommandations/");
-  return data;
+  try {
+    const { data } = await api.get("/events/recommandations-perso/");
+    return data;
+  } catch {
+    const { data } = await api.get("/events/recommandations/");
+    return data;
+  }
 }
 
-/**
- * Découvertes : events de catégories qui ne sont PAS dans les intérêts du user
- * Pour élargir ses horizons (sortir de la bulle)
- */
+// Découvertes : events de catégories qui ne sont PAS dans les intérêts du user
 export async function fetchDiscoveries() {
   if (USE_MOCK) return { results: [], count: 0 };
   const { data } = await api.get("/events/decouvertes/");

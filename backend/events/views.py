@@ -5,9 +5,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from django.db.models import Q, F, Exists, OuterRef
+from django.db.models import Q, F, Exists, OuterRef, Case, When, Value, IntegerField, Count
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation,Favori
+from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation, Favori, SearchHistory
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
     CategorieSerializer, TagSerializer,
@@ -79,8 +79,6 @@ class IsOrganisateurOrReadOnly(permissions.BasePermission):
 
 
 # Permission : réservé aux utilisateurs dont le rôle est 'admin'.
-# Volontairement définie ici plutôt qu'importée de users, pour éviter
-# un import circulaire entre les deux applications.
 class IsAdminRole(permissions.BasePermission):
     def has_permission(self, request, view):
         return (
@@ -171,7 +169,6 @@ def remove_months_from_query(query):
 
 
 # Construit un pattern regex sûr à partir de noms d'intérêts saisis par les users.
-# re.escape() évite qu'un intérêt type "Rock (live)" ou "C++" casse la requête.
 def build_interets_pattern(noms):
     return r'(' + '|'.join(re.escape(n) for n in noms) + r')'
 
@@ -189,16 +186,14 @@ class EventViewSet(viewsets.ModelViewSet):
         return EventDetailSerializer
 
     def get_queryset(self):
+        
+        
         qs = Event.objects.select_related('categorie', 'organisateur') \
                           .prefetch_related('tags', 'types_billets')
         user = self.request.user
         params = self.request.query_params
 
-        # RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) 
-        # - min 2 caractères
-        # - mois détecté en AND avec le texte ("concert juillet" = concerts DE juillet)
-        # - stemming français : "festivals" trouve "festival"
-        # - insensible aux accents dans les deux sens
+        
         q = (params.get('q') or '').strip()
         self._search_active = False
 
@@ -207,7 +202,11 @@ class EventViewSet(viewsets.ModelViewSet):
             q_texte = remove_months_from_query(q)
 
             if len(q_texte) >= 2:
-                # Vecteur pondéré : titre (A) > ville/lieu/catégorie (B) > description (C)
+                # PERTINENCE : on donne un POIDS à chaque champ. Un mot trouvé
+                # dans le TITRE compte plus que dans la description.
+                #   A = titre (le plus important)
+                #   B = ville / lieu / catégorie (moyen)
+                #   C = description (le moins important)
                 vector = (
                     SearchVector('titre', weight='A', config='french')
                     + SearchVector('ville', weight='B', config='french')
@@ -215,8 +214,11 @@ class EventViewSet(viewsets.ModelViewSet):
                     + SearchVector('categorie__nom', weight='B', config='french')
                     + SearchVector('description', weight='C', config='french')
                 )
+                # La requête est interprétée comme sur un moteur de recherche (websearch)
                 search_query = SearchQuery(q_texte, config='french', search_type='websearch')
 
+                # search_rank = SCORE DE PERTINENCE calculé par PostgreSQL :
+                # plus le mot correspond bien (et dans un champ important), plus le score est élevé.
                 qs = qs.annotate(
                     search_rank=SearchRank(vector, search_query)
                 ).filter(
@@ -232,9 +234,16 @@ class EventViewSet(viewsets.ModelViewSet):
 
                 self._search_active = True
 
+                # On enregistre la recherche dans l'historique (user connecté).
+                
+                if user.is_authenticated:
+                    SearchHistory.objects.create(user=user, terme=q_texte[:255])
+
             if mois_list:
                 qs = qs.filter(date_evenement__month__in=mois_list)
 
+        # LES FILTRES 
+        
         # Multi-catégories
         categorie = params.get('categorie')
         if categorie:
@@ -294,8 +303,7 @@ class EventViewSet(viewsets.ModelViewSet):
             except (ValueError, TypeError):
                 pass
 
-        # FILTRAGE PAR RÔLE 
-
+        #  RÈGLES DE VISIBILITÉ 
         if not user.is_authenticated:
             qs = qs.filter(statut='publie', is_valide=True)
         elif user.role == 'admin':
@@ -328,39 +336,60 @@ class EventViewSet(viewsets.ModelViewSet):
             now = timezone.now()
             qs = qs.filter(date_evenement__gte=now)
 
-        # TRI 
+        #  LE TRI 
         sort = params.get('sort')
 
         if sort == 'date_asc':
-            qs = qs.order_by('date_evenement')
+            qs = qs.order_by('date_evenement')            # du plus proche au plus lointain
         elif sort == 'date_desc':
-            qs = qs.order_by('-date_evenement')
+            qs = qs.order_by('-date_evenement')           # du plus lointain au plus proche
         elif sort == 'price_asc':
-            qs = qs.order_by(F('prix').asc(nulls_last=True))
+            qs = qs.order_by(F('prix').asc(nulls_last=True))   # prix croissant
         elif sort == 'price_desc':
-            qs = qs.order_by(F('prix').desc(nulls_last=True))
+            qs = qs.order_by(F('prix').desc(nulls_last=True))  # prix décroissant
         elif sort == 'popular':
             qs = qs.order_by(F('capacite').desc(nulls_last=True), '-created_at')
         else:
-            # Pertinence : score du match si recherche active, sinon bons plans + date
+            # TRI PAR DÉFAUT (aucun tri choisi par l'utilisateur) :
             if getattr(self, '_search_active', False):
+                # S'il a fait une recherche texte -> on classe par PERTINENCE (meilleur score d'abord)
                 qs = qs.order_by('-search_rank', 'date_evenement')
             else:
+                # Sinon -> tri par PROXIMITÉ : les événements de la ville de
+                # l'utilisateur connecté passent en tête, puis les bons plans, puis la date.
                 bon_plan_subquery = TypeBillet.objects.filter(
                     event=OuterRef('pk'), is_bon_plan=True
                 )
                 qs = qs.annotate(
                     has_bon_plan_annot=Exists(bon_plan_subquery),
-                ).order_by(
-                    '-has_bon_plan_annot',
-                    'date_evenement',
                 )
+
+                user_ville = (
+                    getattr(user, 'ville', '') if user.is_authenticated else ''
+                )
+                if user_ville:
+                    # is_same_city = 1 pour la ville du user, 0 sinon  tri décroissant
+                    qs = qs.annotate(
+                        is_same_city=Case(
+                            When(ville__iexact=user_ville, then=Value(1)),
+                            default=Value(0),
+                            output_field=IntegerField(),
+                        )
+                    ).order_by(
+                        '-is_same_city',
+                        '-has_bon_plan_annot',
+                        'date_evenement',
+                    )
+                else:
+                    # Visiteur non connecté (ou sans ville) : bons plans + date
+                    qs = qs.order_by(
+                        '-has_bon_plan_annot',
+                        'date_evenement',
+                    )
 
         return qs
 
-    # Empêche un user pas encore organisateur de soumettre autre chose qu'un brouillon.
-    # Le serializer recalcule statut via is_draft : on force donc is_draft=True ici
-    # directement dans validated_data pour ne pas dépendre du payload frontend.
+    
     def perform_create(self, serializer):
         user = self.request.user
         is_organisateur = user.is_organisateur or user.role == 'admin'
@@ -379,13 +408,13 @@ class EventViewSet(viewsets.ModelViewSet):
         permission_classes=[permissions.IsAuthenticated]
     )
     def recommandations(self, request):
+        # Events des catégories qui intéressent le user, sa ville en tête.
+        # (filtrage par catégorie + boost ville, pas de score pondéré)
         user = request.user
         now = timezone.now()
-        # Unification (Option A) : les centres d'intérêt SONT des catégories,
-        # la correspondance est donc directe (même objet), sans regex sur les noms.
         user_cat_ids = list(user.interets.values_list('id', flat=True))
 
-        # Events publiés ET futurs uniquement
+        # Base : events publiés, validés et à venir
         base_qs = Event.objects.filter(
             statut='publie',
             is_valide=True,
@@ -393,6 +422,7 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
+        # Filtre par intérêts, avec fallbacks si résultat vide
         if user_cat_ids:
             recommended = base_qs.filter(categorie_id__in=user_cat_ids)
             if not recommended.exists() and user.ville:
@@ -404,7 +434,7 @@ class EventViewSet(viewsets.ModelViewSet):
         else:
             recommended = base_qs
 
-        # Boost ville (events de la ville du user en premier)
+        # Boost ville : events de sa ville d'abord, puis les autres
         if user.ville:
             same_city = list(recommended.filter(ville__iexact=user.ville)[:10])
             other_city = list(recommended.exclude(ville__iexact=user.ville)[:10])
@@ -413,6 +443,99 @@ class EventViewSet(viewsets.ModelViewSet):
             results = list(recommended[:20])
 
         results = results[:20]
+        serializer = EventListSerializer(results, many=True, context={'request': request})
+        return Response({'results': serializer.data, 'count': len(results)})
+
+    # GET /api/events/recommandations-perso/
+    # Recommandations COMPORTEMENTALES 
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='recommandations-perso',
+        permission_classes=[permissions.IsAuthenticated]
+    )
+    def recommandations_perso(self, request):
+        user = request.user
+        now = timezone.now()
+
+        
+        scores = {}  # {categorie_id: score}
+
+        def add(cat_id, points):
+            if cat_id:
+                scores[cat_id] = scores.get(cat_id, 0) + points
+
+        # Réservations confirmées (poids 3)
+        for cat_id in Reservation.objects.filter(
+            user=user, statut='confirmee'
+        ).values_list('event__categorie_id', flat=True):
+            add(cat_id, 3)
+
+        # Favoris (poids 2)
+        for cat_id in Favori.objects.filter(
+            user=user
+        ).values_list('event__categorie_id', flat=True):
+            add(cat_id, 2)
+
+        # Vues (poids 1)
+        for cat_id in EventView.objects.filter(
+            user=user
+        ).values_list('event__categorie_id', flat=True):
+            add(cat_id, 1)
+
+        
+        termes = SearchHistory.objects.filter(user=user).values_list('terme', flat=True)
+        for terme in termes:
+            cat = Categorie.objects.filter(nom__unaccent__iexact=terme.strip()).first()
+            if cat:
+                add(cat.id, 2)
+
+        #  cold start 
+        # Pas encore d'actions => on retombe sur les intérêts déclarés
+        # à l'inscription (comportement de la fonction recommandations classique).
+        if not scores:
+            user_cat_ids = list(user.interets.values_list('id', flat=True))
+        else:
+            # Catégories triées par affinité décroissante
+            user_cat_ids = [cid for cid, _ in sorted(
+                scores.items(), key=lambda kv: kv[1], reverse=True
+            )]
+
+        # events à recommander 
+        base_qs = Event.objects.filter(
+            statut='publie',
+            is_valide=True,
+            date_evenement__gte=now
+        ).select_related('categorie', 'organisateur') \
+         .prefetch_related('tags', 'types_billets')
+
+        # On exclut ce que le user connaît déjà (events vus ou réservés)
+        seen_ids = set(EventView.objects.filter(user=user).values_list('event_id', flat=True))
+        seen_ids |= set(Reservation.objects.filter(user=user).values_list('event_id', flat=True))
+        if seen_ids:
+            base_qs = base_qs.exclude(id__in=seen_ids)
+
+        # On garde les events des catégories préférées, dans l'ordre d'affinité.
+        if user_cat_ids:
+            ordering = Case(
+                *[When(categorie_id=cid, then=Value(i)) for i, cid in enumerate(user_cat_ids)],
+                default=Value(len(user_cat_ids)),
+                output_field=IntegerField(),
+            )
+            recommended = base_qs.filter(categorie_id__in=user_cat_ids).annotate(
+                _affinite_rank=ordering
+            ).order_by('_affinite_rank', 'date_evenement')
+        else:
+            recommended = base_qs.order_by('date_evenement')
+
+        # Boost ville par-dessus (sa ville d'abord)
+        if user.ville:
+            same_city = list(recommended.filter(ville__iexact=user.ville)[:10])
+            other_city = list(recommended.exclude(ville__iexact=user.ville)[:10])
+            results = (same_city + other_city)[:20]
+        else:
+            results = list(recommended[:20])
+
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
 
@@ -458,9 +581,10 @@ class EventViewSet(viewsets.ModelViewSet):
         permission_classes=[permissions.IsAuthenticated]
     )
     def decouvertes(self, request):
+        # Miroir des recommandations : on EXCLUT ses catégories d'intérêt
+        
         user = request.user
         now = timezone.now()
-        # Découvertes = catégories HORS centres d'intérêt du user (élargir les horizons)
         user_cat_ids = list(user.interets.values_list('id', flat=True))
 
         base_qs = Event.objects.filter(
@@ -470,11 +594,13 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
+        # Tout sauf ses catégories d'intérêt
         if user_cat_ids:
             decouvertes = base_qs.exclude(categorie_id__in=user_cat_ids)
         else:
             decouvertes = base_qs
 
+        # Boost ville, plafond à 6
         if user.ville:
             same_city = list(decouvertes.filter(ville__iexact=user.ville)[:6])
             other_city = list(decouvertes.exclude(ville__iexact=user.ville)[:6])
@@ -496,6 +622,7 @@ class EventViewSet(viewsets.ModelViewSet):
     )
     def populaires(self, request):
         now = timezone.now()
+        user = request.user
         base_qs = Event.objects.filter(
             statut='publie',
             is_valide=True,
@@ -503,9 +630,27 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
-        populaires = base_qs.filter(capacite__isnull=False).order_by('-capacite', '-created_at')
+        # SCORE DE POPULARITÉ 
+        populaires = base_qs.annotate(
+            nb_reservations=Count(
+                'reservations',
+                filter=Q(reservations__statut='confirmee'),
+                distinct=True,
+            ),
+            nb_favoris=Count('favoris', distinct=True),
+            nb_vues=Count('views', distinct=True),
+        ).annotate(
+            popularite=F('nb_reservations') * 3 + F('nb_favoris') * 2 + F('nb_vues'),
+        ).order_by('-popularite', '-created_at')
 
-        results = list(populaires[:6])
+        # Priorité à la ville de l'utilisateur (comme les autres sections de l'accueil)
+        if user.is_authenticated and user.ville:
+            same_city = list(populaires.filter(ville__iexact=user.ville)[:6])
+            other_city = list(populaires.exclude(ville__iexact=user.ville)[:6])
+            results = (same_city + other_city)[:6]
+        else:
+            results = list(populaires[:6])
+
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
 
@@ -680,7 +825,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
     # POST /api/events/{id}/duplicate/
     # Crée une copie d'un événement (en brouillon, date remise à blanc)
-    # Réservé au propriétaire ou à un admin (via has_object_permission).
+    # Réservé au propriétaire ou à un admin 
     @action(
         detail=True,
         methods=['post'],

@@ -40,6 +40,7 @@ class RegisterView(generics.CreateAPIView):
 
 
 # serializer le login 
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.USERNAME_FIELD
 
@@ -53,6 +54,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 # vue de login personnalisée
+# renvoie le user complet + émet la paire de jetons
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 

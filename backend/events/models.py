@@ -320,7 +320,10 @@ class EventView(models.Model):
 
     def __str__(self):
         return f"View {self.event.titre} @ {self.viewed_at:%Y-%m-%d %H:%M}"
-
+class SearchHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='search_history')
+    terme = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 # RÉSERVATIONS 
 class Reservation(models.Model):

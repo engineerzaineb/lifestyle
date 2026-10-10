@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
 
-    # Allauth (pour OAuth Google/Facebook plus tard)
+    # Allauth (pour OAuth Google/Facebook )
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -120,7 +120,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Configuration allauth (pour OAuth plus tard)
+# Configuration allauth (pour OAuth )
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'
