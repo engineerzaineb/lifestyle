@@ -381,9 +381,9 @@ class EventViewSet(viewsets.ModelViewSet):
     def recommandations(self, request):
         user = request.user
         now = timezone.now()
-        user_interets_noms = [
-            i.nom.lower() for i in user.interets.filter(is_official=True)
-        ]
+        # Unification (Option A) : les centres d'intérêt SONT des catégories,
+        # la correspondance est donc directe (même objet), sans regex sur les noms.
+        user_cat_ids = list(user.interets.values_list('id', flat=True))
 
         # Events publiés ET futurs uniquement
         base_qs = Event.objects.filter(
@@ -393,9 +393,8 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
-        if user_interets_noms:
-            pattern = build_interets_pattern(user_interets_noms)
-            recommended = base_qs.filter(categorie__nom__iregex=pattern)
+        if user_cat_ids:
+            recommended = base_qs.filter(categorie_id__in=user_cat_ids)
             if not recommended.exists() and user.ville:
                 recommended = base_qs.filter(ville__iexact=user.ville)
             if not recommended.exists():
@@ -461,9 +460,8 @@ class EventViewSet(viewsets.ModelViewSet):
     def decouvertes(self, request):
         user = request.user
         now = timezone.now()
-        user_interets_noms = [
-            i.nom.lower() for i in user.interets.filter(is_official=True)
-        ]
+        # Découvertes = catégories HORS centres d'intérêt du user (élargir les horizons)
+        user_cat_ids = list(user.interets.values_list('id', flat=True))
 
         base_qs = Event.objects.filter(
             statut='publie',
@@ -472,9 +470,8 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
-        if user_interets_noms:
-            pattern = build_interets_pattern(user_interets_noms)
-            decouvertes = base_qs.exclude(categorie__nom__iregex=pattern)
+        if user_cat_ids:
+            decouvertes = base_qs.exclude(categorie_id__in=user_cat_ids)
         else:
             decouvertes = base_qs
 

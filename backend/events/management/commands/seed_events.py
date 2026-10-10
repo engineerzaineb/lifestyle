@@ -370,6 +370,225 @@ EVENTS = [
             {"nom": "Séance", "prix": 20, "capacite": 30},
         ],
     },
+
+    # ======================================================
+    #  NOUVEAUX ÉVÉNEMENTS (jeu de données enrichi)
+    # ======================================================
+
+    # --- MUSIQUE ---
+    {
+        "titre": "Concert symphonique — Orchestre de Tunis",
+        "description": "Une soirée classique exceptionnelle avec l'Orchestre symphonique tunisien interprétant les grands maîtres.",
+        "ville": "Tunis", "lieu": "Théâtre municipal de Tunis",
+        "categorie": "Musique", "jours_dans_futur": 20,
+        "tags": ["classique", "orchestre"],
+        "billets": [
+            {"nom": "Standard", "prix": 40, "capacite": 400},
+            {"nom": "Premium", "prix": 90, "capacite": 60},
+        ],
+    },
+    {
+        "titre": "Nuit du Malouf à Sfax",
+        "description": "Plongez dans le patrimoine musical tunisien avec une nuit dédiée au Malouf traditionnel.",
+        "ville": "Sfax", "lieu": "Maison de la Culture de Sfax",
+        "categorie": "Musique", "jours_dans_futur": 2,
+        "tags": ["malouf", "patrimoine", "tunisien"],
+        "billets": [
+            {"nom": "Standard", "prix": 30, "capacite": 300, "bon_plan": True, "prix_original": 45},
+        ],
+    },
+
+    # --- FOOD ---
+    {
+        "titre": "Festival gastronomique de Djerba",
+        "description": "Découvrez les saveurs de la cuisine djerbienne à travers des dizaines de stands et d'ateliers culinaires.",
+        "ville": "Djerba", "lieu": "Place Houmt Souk",
+        "categorie": "Food", "jours_dans_futur": 25,
+        "tags": ["gastronomie", "festival", "terroir"],
+        "billets": [
+            {"nom": "Entrée + dégustations", "prix": 35, "capacite": 500},
+        ],
+    },
+    {
+        "titre": "Atelier pâtisserie tunisienne",
+        "description": "Apprenez à préparer les douceurs tunisiennes incontournables : baklawa, makroudh et kaâk warka.",
+        "ville": "Sousse", "lieu": "Médina de Sousse",
+        "categorie": "Food", "jours_dans_futur": 6,
+        "tags": ["atelier", "patisserie"],
+        "billets": [
+            {"nom": "Participation", "prix": 55, "capacite": 25},
+        ],
+    },
+
+    # --- ART ---
+    {
+        "titre": "Exposition d'art contemporain tunisien",
+        "description": "Une sélection d'œuvres de jeunes artistes tunisiens explorant les thèmes de l'identité et de la modernité.",
+        "ville": "Tunis", "lieu": "Galerie Le Violon Bleu",
+        "categorie": "Art", "jours_dans_futur": 10,
+        "tags": ["exposition", "contemporain"],
+        "billets": [
+            {"nom": "Entrée", "prix": 15, "capacite": 200},
+        ],
+    },
+    {
+        "titre": "Atelier de poterie à Nabeul",
+        "description": "Initiez-vous à la poterie traditionnelle de Nabeul avec des artisans locaux.",
+        "ville": "Nabeul", "lieu": "Centre artisanal de Nabeul",
+        "categorie": "Art", "jours_dans_futur": 18,
+        "tags": ["atelier", "artisanat", "poterie"],
+        "billets": [
+            {"nom": "Atelier", "prix": 40, "capacite": 20},
+        ],
+    },
+
+    # --- SPORT ---
+    {
+        "titre": "Semi-marathon de Sousse 2026",
+        "description": "Le grand semi-marathon annuel de Sousse : 21 km le long de la corniche et à travers la médina.",
+        "ville": "Sousse", "lieu": "Corniche de Sousse",
+        "categorie": "Sport", "jours_dans_futur": 30,
+        "tags": ["marathon", "course", "outdoor"],
+        "billets": [
+            {"nom": "Inscription 21 km", "prix": 45, "capacite": 1500},
+            {"nom": "Inscription 10 km", "prix": 25, "capacite": 1000},
+        ],
+    },
+    {
+        "titre": "Tournoi de beach-volley de Hammamet",
+        "description": "Compétition amicale de beach-volley sur la plage de Hammamet, ouverte à tous les niveaux.",
+        "ville": "Hammamet", "lieu": "Plage publique de Hammamet",
+        "categorie": "Sport", "jours_dans_futur": 8,
+        "tags": ["volley", "plage", "tournoi"],
+        "billets": [
+            {"nom": "Équipe (2 joueurs)", "prix": 30, "capacite": 64},
+        ],
+    },
+
+    # --- THÉÂTRE ---
+    {
+        "titre": "Pièce de théâtre — « La Médina »",
+        "description": "Une pièce contemporaine qui raconte la vie quotidienne dans la médina de Tunis à travers plusieurs générations.",
+        "ville": "Tunis", "lieu": "Théâtre El Hamra",
+        "categorie": "Théâtre", "jours_dans_futur": 4,
+        "tags": ["theatre", "contemporain"],
+        "billets": [
+            {"nom": "Standard", "prix": 25, "capacite": 150},
+        ],
+    },
+    {
+        "titre": "Spectacle de marionnettes pour enfants",
+        "description": "Un spectacle de marionnettes coloré et interactif qui ravira les plus petits.",
+        "ville": "Sousse", "lieu": "Centre culturel de Sousse",
+        "categorie": "Théâtre", "jours_dans_futur": 15,
+        "tags": ["marionnettes", "enfants"],
+        "billets": [
+            {"nom": "Entrée", "prix": 12, "capacite": 120},
+        ],
+    },
+
+    # --- CINÉMA ---
+    {
+        "titre": "Avant-première du cinéma tunisien",
+        "description": "Projection en avant-première d'un long-métrage tunisien primé, suivie d'un débat avec le réalisateur.",
+        "ville": "Tunis", "lieu": "CinéMadart Carthage",
+        "categorie": "Cinéma", "jours_dans_futur": 9,
+        "tags": ["cinema", "avant-premiere", "tunisien"],
+        "billets": [
+            {"nom": "Entrée", "prix": 18, "capacite": 250},
+        ],
+    },
+    {
+        "titre": "Nuit du cinéma d'horreur",
+        "description": "Une nuit entière de films d'horreur cultes projetés sur grand écran. Frissons garantis !",
+        "ville": "La Marsa", "lieu": "Pathé La Marsa",
+        "categorie": "Cinéma", "jours_dans_futur": 22,
+        "tags": ["cinema", "horreur", "nuit"],
+        "billets": [
+            {"nom": "Pass nuit", "prix": 30, "capacite": 180, "bon_plan": True, "prix_original": 45},
+        ],
+    },
+
+    # --- TECH ---
+    {
+        "titre": "Hackathon Tunisia Digital 2026",
+        "description": "48 heures de code non-stop pour développer des solutions innovantes. Prix pour les meilleures équipes.",
+        "ville": "Tunis", "lieu": "Technopôle El Ghazala",
+        "categorie": "Tech", "jours_dans_futur": 28,
+        "tags": ["hackathon", "code", "innovation"],
+        "billets": [
+            {"nom": "Participation", "prix": 0, "capacite": 150},
+        ],
+    },
+    {
+        "titre": "Conférence Intelligence Artificielle",
+        "description": "Une journée de conférences et d'ateliers sur l'IA et le machine learning, avec des experts tunisiens et internationaux.",
+        "ville": "Sfax", "lieu": "Université de Sfax",
+        "categorie": "Tech", "jours_dans_futur": 16,
+        "tags": ["IA", "conference", "machine-learning"],
+        "billets": [
+            {"nom": "Étudiant", "prix": 20, "capacite": 200},
+            {"nom": "Professionnel", "prix": 60, "capacite": 100},
+        ],
+    },
+
+    # --- NIGHTLIFE ---
+    {
+        "titre": "Soirée électro à Gammarth",
+        "description": "DJ sets internationaux dans l'un des clubs les plus réputés de la côte nord.",
+        "ville": "La Marsa", "lieu": "Club Calypso Gammarth",
+        "categorie": "Nightlife", "jours_dans_futur": 1,
+        "tags": ["electro", "DJ", "club"],
+        "billets": [
+            {"nom": "Entrée", "prix": 40, "capacite": 400},
+            {"nom": "Table VIP", "prix": 300, "capacite": 20},
+        ],
+    },
+
+    # --- BIEN-ÊTRE ---
+    {
+        "titre": "Séance de méditation au lever du soleil",
+        "description": "Une séance de méditation guidée face à la mer, au lever du soleil, pour bien commencer la journée.",
+        "ville": "Monastir", "lieu": "Plage de Monastir",
+        "categorie": "Bien-être", "jours_dans_futur": 5,
+        "tags": ["meditation", "sunrise"],
+        "billets": [
+            {"nom": "Séance", "prix": 15, "capacite": 40},
+        ],
+    },
+
+    # --- FAMILLE ---
+    {
+        "titre": "Journée en famille à Carthage Land",
+        "description": "Une journée pleine d'attractions et d'animations pour toute la famille au parc Carthage Land.",
+        "ville": "Hammamet", "lieu": "Carthage Land Hammamet",
+        "categorie": "Famille", "jours_dans_futur": 11,
+        "tags": ["famille", "parc", "enfants"],
+        "billets": [
+            {"nom": "Adulte", "prix": 35, "capacite": 500},
+            {"nom": "Enfant", "prix": 20, "capacite": 500},
+        ],
+    },
+    {
+        "titre": "Atelier scientifique pour enfants",
+        "description": "Des expériences amusantes et éducatives pour éveiller la curiosité scientifique des enfants.",
+        "ville": "Tunis", "lieu": "Cité des Sciences de Tunis",
+        "categorie": "Famille", "jours_dans_futur": 13,
+        "tags": ["science", "enfants", "atelier"],
+        "billets": [
+            {"nom": "Enfant + accompagnateur", "prix": 25, "capacite": 60},
+        ],
+    },
+    {
+        "titre": "Chasse au trésor géante à Sousse",
+        "description": "Une grande chasse au trésor à travers la médina de Sousse pour petits et grands.",
+        "ville": "Sousse", "lieu": "Médina de Sousse",
+        "categorie": "Famille", "jours_dans_futur": 19,
+        "tags": ["famille", "jeu", "outdoor"],
+        "billets": [
+            {"nom": "Équipe (jusqu'à 5)", "prix": 50, "capacite": 40},
+        ],
+    },
 ]
 
 
