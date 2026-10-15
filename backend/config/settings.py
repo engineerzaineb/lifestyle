@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
 
-    # Allauth (pour OAuth Google/Facebook )
+    # Allauth (pour OAuth Google/Facebook plus tard)
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -120,12 +120,30 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Configuration allauth (pour OAuth )
+# Configuration allauth
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+
+# Clés OAuth : fournies par les comptes développeur de TWINKLE.
+# Elles sont lues depuis le .env. Tant qu'elles sont vides, les boutons
+# sociaux renvoient une erreur claire (l'app démarre quand même).
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': config('GOOGLE_CLIENT_ID', default=''),
+            'secret': config('GOOGLE_CLIENT_SECRET', default=''),
+        },
+    },
+    'facebook': {
+        'APP': {
+            'client_id': config('FACEBOOK_APP_ID', default=''),
+            'secret': config('FACEBOOK_APP_SECRET', default=''),
+        },
+    },
+}
 
 # CORS : autorise le frontend Vite (port 5173)
 CORS_ALLOWED_ORIGINS = [

@@ -159,6 +159,13 @@ class Event(models.Model):
     )
 
     image = models.ImageField(upload_to='events/', blank=True)
+
+    # Public cible : un event peut viser plusieurs publics à la fois.
+    # (ex. un atelier famille = enfants + jeunes + adultes)
+    public_enfants = models.BooleanField(default=False, help_text="Adapté aux enfants")
+    public_jeunes = models.BooleanField(default=False, help_text="Adapté aux jeunes")
+    public_adultes = models.BooleanField(default=True, help_text="Adapté aux adultes")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -320,10 +327,7 @@ class EventView(models.Model):
 
     def __str__(self):
         return f"View {self.event.titre} @ {self.viewed_at:%Y-%m-%d %H:%M}"
-class SearchHistory(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='search_history')
-    terme = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
+
 
 # RÉSERVATIONS 
 class Reservation(models.Model):
@@ -412,3 +416,32 @@ def notifier(user, titre, lien=""):
     """Fonction utilitaire : crée une notification pour un utilisateur.
     Appelable depuis n'importe où (annulation, validation, offres...)."""
     return Notification.objects.create(user=user, titre=titre, lien=lien)
+
+
+def notifier_admins(titre, lien=""):
+    """Crée une notification pour TOUS les administrateurs.
+    Utilisé pour prévenir l'équipe admin (nouvelle demande, nouvel event...)."""
+    admins = User.objects.filter(role='admin')
+    objs = [Notification(user=a, titre=titre, lien=lien) for a in admins]
+    Notification.objects.bulk_create(objs)
+    return len(objs)
+
+
+# HISTORIQUE DE RECHERCHE
+class SearchHistory(models.Model):
+    """Une recherche texte faite par un utilisateur connecté.
+    Sert à personnaliser les recommandations (ex: termes récurrents)."""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='search_history',
+    )
+    terme = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} a cherché « {self.terme} »"

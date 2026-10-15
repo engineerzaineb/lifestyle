@@ -9,6 +9,7 @@ import {
   createDemandeOrganisateur,
   cancelMyDemandeOrganisateur,
   getCurrentUser,
+  fetchMonHistoriqueDemandes,
 } from "../../services/authService";
 import { fetchCategories, fetchMyBrouillons, deleteEvent } from "../../services/eventService";
 import { useAuth } from "../../context/useAuth";
@@ -31,6 +32,8 @@ export default function DevenirOrganisateur() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [historique, setHistorique] = useState([]);
+  const [showHistorique, setShowHistorique] = useState(false);
 
   // Brouillons
   const [brouillons, setBrouillons] = useState([]);
@@ -45,7 +48,9 @@ export default function DevenirOrganisateur() {
     telephone_pro: "",
     description: "",
     site_web: "",
+    reseaux_sociaux: "",
     categories_prevues: [],
+    nouvelles_categories: [],   // catégories proposées par l'orga (texte libre)
   });
   const [logo, setLogo] = useState(null);
   const [errors, setErrors] = useState({});
@@ -55,9 +60,11 @@ export default function DevenirOrganisateur() {
     Promise.all([
       getMyDemandeOrganisateur().catch(() => null),
       fetchCategories().catch(() => []),
-    ]).then(([demandeData, cats]) => {
+      fetchMonHistoriqueDemandes().catch(() => []),
+    ]).then(([demandeData, cats, histo]) => {
       setDemande(demandeData);
       setCategories(cats || []);
+      setHistorique(histo || []);
       setLoading(false);
     });
   }, []);
@@ -116,7 +123,9 @@ export default function DevenirOrganisateur() {
     if (!form.adresse.trim()) newErrors.adresse = "Adresse requise";
     if (!form.telephone_pro.trim()) newErrors.telephone_pro = "Téléphone requis";
     if (!form.description.trim()) newErrors.description = "Description requise";
-    if (form.categories_prevues.length === 0) newErrors.categories = "Choisissez au moins une catégorie";
+    if (form.categories_prevues.length === 0 && form.nouvelles_categories.length === 0) {
+      newErrors.categories = "Choisissez ou proposez au moins une catégorie";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -140,9 +149,13 @@ export default function DevenirOrganisateur() {
         payload.append("telephone_pro", form.telephone_pro);
         payload.append("description", form.description);
         if (form.site_web) payload.append("site_web", form.site_web);
+        if (form.reseaux_sociaux) payload.append("reseaux_sociaux", form.reseaux_sociaux);
         payload.append("logo", logo);
         form.categories_prevues.forEach((id) =>
           payload.append("categories_prevues", id)
+        );
+        form.nouvelles_categories.forEach((nom) =>
+          payload.append("nouvelles_categories", nom)
         );
       } else {
         payload = { ...form };
@@ -222,6 +235,65 @@ export default function DevenirOrganisateur() {
           <ArrowLeft size={16} />
           Retour au profil
         </button>
+
+        {/* === HISTORIQUE DES DEMANDES (bouton + panneau repliable) === */}
+        {historique.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <button
+              type="button"
+              onClick={() => setShowHistorique((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                justifyContent: "space-between", padding: "12px 16px",
+                background: "var(--color-surface)", border: "1px solid var(--color-border)",
+                borderRadius: 14, cursor: "pointer", fontSize: 14, fontWeight: 600,
+                color: "var(--color-text)", fontFamily: "inherit",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Clock size={16} /> Historique de mes demandes ({historique.length})
+              </span>
+              <span style={{ color: "var(--color-text-muted)" }}>
+                {showHistorique ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {showHistorique && (
+            <ul style={{
+              listStyle: "none", margin: "10px 0 0", padding: 18,
+              background: "var(--color-surface)", border: "1px solid var(--color-border)",
+              borderRadius: 14, display: "flex", flexDirection: "column", gap: 10,
+            }}>
+              {historique.map((h) => {
+                const conf = {
+                  soumise:  { icon: <FileText size={15} />,    color: "var(--color-text-muted)" },
+                  acceptee: { icon: <CheckCircle size={15} />, color: "var(--color-success, #16a34a)" },
+                  refusee:  { icon: <XCircle size={15} />,     color: "var(--color-danger, #dc2626)" },
+                  retiree:  { icon: <AlertCircle size={15} />, color: "var(--color-warning, #f59e0b)" },
+                  annulee:  { icon: <Trash2 size={15} />,      color: "var(--color-text-muted)" },
+                }[h.evenement] || { icon: <FileText size={15} />, color: "var(--color-text-muted)" };
+                return (
+                  <li key={h.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ color: conf.color, marginTop: 2 }}>{conf.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {h.evenement_label}
+                        {h.nom_organisation ? ` — ${h.nom_organisation}` : ""}
+                      </div>
+                      {h.motif && (
+                        <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>Motif : {h.motif}</div>
+                      )}
+                      <div style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                        {formatDate(h.created_at)}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            )}
+          </div>
+        )}
 
         {/* === DEMANDE EN ATTENTE === */}
         {demande && demande.statut === "en_attente" && (
@@ -333,8 +405,10 @@ export default function DevenirOrganisateur() {
           </>
         )}
 
-        {/* === DEMANDE VALIDÉE === */}
-        {demande && demande.statut === "valide" && (
+        {/* === DEMANDE VALIDÉE (seulement si l'utilisateur est VRAIMENT organisateur) ===
+             Si l'admin a retiré le statut, on ne montre plus "Félicitations"
+             même si une ancienne demande "valide" traîne encore. */}
+        {demande && demande.statut === "valide" && user?.is_organisateur && (
           <div className={styles.statusCard}>
             <div
               className={styles.statusIcon}
@@ -394,8 +468,10 @@ export default function DevenirOrganisateur() {
           </div>
         )}
 
-        {/* === FORMULAIRE (pas de demande) === */}
-        {!demande && (
+        {/* === FORMULAIRE ===
+             Affiché s'il n'y a pas de demande, OU si une demande "valide" existe
+             mais que l'utilisateur n'est plus organisateur (statut retiré par l'admin). */}
+        {(!demande || (demande.statut === "valide" && !user?.is_organisateur)) && (
           <FormulaireDemand
             form={form}
             errors={errors}
@@ -427,6 +503,7 @@ function FormulaireDemand({
   form, errors, categories, logo, submitting,
   updateField, toggleCategorie, setLogo, onSubmit,
 }) {
+  const [catInput, setCatInput] = useState("");
   return (
     <>
       <div className={styles.header}>
@@ -550,6 +627,48 @@ function FormulaireDemand({
           />
         </div>
 
+        {/* Réseaux sociaux (optionnel) */}
+        <div className={styles.field}>
+          <label className={styles.label}>
+            Lien réseaux sociaux <span className={styles.optional}>(optionnel)</span>
+          </label>
+          <input
+            type="url"
+            value={form.reseaux_sociaux}
+            onChange={(e) => updateField("reseaux_sociaux", e.target.value)}
+            placeholder="https://instagram.com/mon-compte"
+            className={styles.input}
+          />
+        </div>
+
+        {/* QR code généré automatiquement à partir du lien principal.
+            On privilégie le site web, sinon les réseaux sociaux. */}
+        {(() => {
+          const lien = (form.site_web || form.reseaux_sociaux || "").trim();
+          if (!lien) return null;
+          const qrUrl =
+            "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
+            encodeURIComponent(lien);
+          return (
+            <div className={styles.field}>
+              <label className={styles.label}>QR code de votre lien</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <img
+                  src={qrUrl}
+                  alt="QR code du lien"
+                  width={120}
+                  height={120}
+                  style={{ borderRadius: 8, border: "1px solid var(--color-border)" }}
+                />
+                <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: 0 }}>
+                  Généré automatiquement. Il pointe vers :<br />
+                  <span style={{ wordBreak: "break-all" }}>{lien}</span>
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Logo (optionnel) */}
         <div className={styles.field}>
           <label className={styles.label}>
@@ -581,6 +700,58 @@ function FormulaireDemand({
               </button>
             ))}
           </div>
+
+          {/* Proposer une catégorie qui n'existe pas (validée par un admin) */}
+          <div style={{ marginTop: 12 }}>
+            <input
+              type="text"
+              value={catInput}
+              onChange={(e) => setCatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const nom = catInput.trim();
+                  if (nom && !form.nouvelles_categories.includes(nom)) {
+                    updateField("nouvelles_categories", [...form.nouvelles_categories, nom]);
+                  }
+                  setCatInput("");
+                }
+              }}
+              placeholder="Autre catégorie… (tapez puis Entrée)"
+              className={styles.input}
+            />
+            {form.nouvelles_categories.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                {form.nouvelles_categories.map((nom) => (
+                  <span
+                    key={nom}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px", borderRadius: 999, fontSize: 12,
+                      background: "var(--color-primary-light)", color: "var(--color-primary)",
+                    }}
+                  >
+                    {nom}
+                    <button
+                      type="button"
+                      onClick={() => updateField(
+                        "nouvelles_categories",
+                        form.nouvelles_categories.filter((n) => n !== nom)
+                      )}
+                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "inherit", fontSize: 14, lineHeight: 1 }}
+                      aria-label={`Retirer ${nom}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
+              Les catégories proposées seront validées par un administrateur.
+            </p>
+          </div>
+
           {errors.categories && <p className={styles.errMsg}>{errors.categories}</p>}
         </div>
 

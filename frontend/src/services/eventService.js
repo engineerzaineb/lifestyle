@@ -1,6 +1,6 @@
 import api from "./api";
 
-// Mode mock désactivé : 
+// Mode mock désactivé : on parle au vrai backend
 const USE_MOCK = false;
 
 // Récupère la liste des événements avec filtres optionnels
@@ -18,6 +18,9 @@ export async function fetchEvent(id) {
 }
 
 // Recommandations personnalisées.
+// On utilise d'abord la reco COMPORTEMENTALE (basée sur les actions réelles :
+// réservations, favoris, vues, recherches). Si elle échoue, on retombe sur
+// l'ancienne reco (intérêts déclarés + ville) pour ne jamais casser la page.
 export async function fetchRecommendations() {
   if (USE_MOCK) return { results: [], count: 0 };
   try {
@@ -29,10 +32,23 @@ export async function fetchRecommendations() {
   }
 }
 
-// Découvertes : events de catégories qui ne sont PAS dans les intérêts du user
+/**
+ * Découvertes : events de catégories qui ne sont PAS dans les intérêts du user
+ * Pour élargir ses horizons (sortir de la bulle)
+ */
 export async function fetchDiscoveries() {
   if (USE_MOCK) return { results: [], count: 0 };
   const { data } = await api.get("/events/decouvertes/");
+  return data;
+}
+
+// Suggestions d'autocomplétion pour la barre de recherche de la navbar.
+// Renvoie { events: [{id, titre}], categories: [{id, nom, slug}] }
+export async function fetchSuggestions(q) {
+  if (USE_MOCK || !q || q.trim().length < 2) {
+    return { events: [], categories: [] };
+  }
+  const { data } = await api.get("/events/suggestions/", { params: { q } });
   return data;
 }
 

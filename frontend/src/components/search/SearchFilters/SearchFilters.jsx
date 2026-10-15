@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { SlidersHorizontal, MapPin, Zap, Search } from "lucide-react";
 import { VILLES_TUNISIE } from "../../../utils/constants";
-import { countActiveFilters, PRIX_MIN_DEFAULT, PRIX_MAX_DEFAULT } from "../../../services/searchService";
+import { countActiveFilters, PRIX_MIN_DEFAULT, PRIX_MAX_DEFAULT, PUBLIC_OPTIONS } from "../../../services/searchService";
 import { fetchCategories } from "../../../services/eventService";
 import styles from "./SearchFilters.module.css";
 
@@ -42,6 +42,15 @@ export default function SearchFilters({ filters, onChange, onReset }) {
       ? current.filter((v) => v !== ville)
       : [...current, ville];
     update("villes", newList);
+  };
+
+  // Toggle public cible (enfants / jeunes / adultes)
+  const togglePublic = (value) => {
+    const current = filters.publics || [];
+    const newList = current.includes(value)
+      ? current.filter((p) => p !== value)
+      : [...current, value];
+    update("publics", newList);
   };
 
   // Filtrer les villes selon la recherche
@@ -157,6 +166,25 @@ export default function SearchFilters({ filters, onChange, onReset }) {
                 );
               })}
             </div>
+          </div>
+        </FilterSection>
+
+        {/* Public cible (enfants / jeunes / adultes) */}
+        <FilterSection title="Public">
+          <div className={styles.chipsGrid}>
+            {PUBLIC_OPTIONS.map((opt) => {
+              const isSelected = filters.publics?.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => togglePublic(opt.value)}
+                  className={`${styles.chip} ${isSelected ? styles.selected : ""}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </FilterSection>
 

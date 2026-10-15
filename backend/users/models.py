@@ -180,6 +180,7 @@ class DemandeOrganisateur(models.Model):
     telephone_pro = models.CharField(max_length=20)
     description = models.TextField()
     site_web = models.URLField(blank=True, null=True)
+    reseaux_sociaux = models.URLField(blank=True, null=True, help_text="Lien réseaux sociaux (Instagram, Facebook...)")
     logo = models.ImageField(upload_to='logos_organisateurs/', blank=True, null=True)
 
     # Catégories prévues (lien vers le modèle Categorie d'events)
@@ -211,3 +212,42 @@ class DemandeOrganisateur(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.nom_organisation} ({self.statut})"
+
+
+class HistoriqueDemandeOrganisateur(models.Model):
+    """Journal des événements liés aux demandes d'organisateur d'un utilisateur.
+    On y enregistre : soumission, acceptation, refus, retrait du statut.
+    Ça permet au user de consulter son historique même après suppression
+    de la demande courante."""
+
+    EVENEMENT_CHOICES = (
+        ('soumise', 'Demande soumise'),
+        ('acceptee', 'Demande acceptée'),
+        ('refusee', 'Demande refusée'),
+        ('retiree', 'Statut organisateur retiré'),
+        ('annulee', 'Demande annulée'),
+    )
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='historique_demandes',
+    )
+    evenement = models.CharField(max_length=20, choices=EVENEMENT_CHOICES)
+    motif = models.TextField(blank=True, default='')   # motif de refus, le cas échéant
+    nom_organisation = models.CharField(max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Historique demande organisateur"
+        verbose_name_plural = "Historiques demandes organisateurs"
+
+    def __str__(self):
+        return f"{self.user.email} — {self.get_evenement_display()} ({self.created_at:%Y-%m-%d})"
+
+
+def historiser_demande(user, evenement, motif='', nom_organisation=''):
+    """Utilitaire : ajoute une entrée dans l'historique des demandes."""
+    return HistoriqueDemandeOrganisateur.objects.create(
+        user=user, evenement=evenement, motif=motif or '',
+        nom_organisation=nom_organisation or '',
+    )

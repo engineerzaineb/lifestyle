@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q, F, Exists, OuterRef, Case, When, Value, IntegerField, Count
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation, Favori, SearchHistory
+from .models import Event, Categorie, Tag, TypeBillet, EventView, Reservation, Favori, SearchHistory, notifier, notifier_admins
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
     CategorieSerializer, TagSerializer,
@@ -79,6 +79,8 @@ class IsOrganisateurOrReadOnly(permissions.BasePermission):
 
 
 # Permission : réservé aux utilisateurs dont le rôle est 'admin'.
+# Volontairement définie ici plutôt qu'importée de users, pour éviter
+# un import circulaire entre les deux applications.
 class IsAdminRole(permissions.BasePermission):
     def has_permission(self, request, view):
         return (
@@ -169,8 +171,24 @@ def remove_months_from_query(query):
 
 
 # Construit un pattern regex sûr à partir de noms d'intérêts saisis par les users.
+# re.escape() évite qu'un intérêt type "Rock (live)" ou "C++" casse la requête.
 def build_interets_pattern(noms):
     return r'(' + '|'.join(re.escape(n) for n in noms) + r')'
+
+
+# Notifie tous les participants d'un event (réservations confirmées, sans doublon).
+# Utilisé quand l'event change (lieu/date) ou est annulé.
+def _notifier_participants(event, message, lien=""):
+    reservations = (
+        Reservation.objects.filter(event=event, statut='confirmee')
+        .select_related('user')
+    )
+    deja_notifies = set()
+    for resa in reservations:
+        if resa.user_id in deja_notifies:
+            continue
+        deja_notifies.add(resa.user_id)
+        notifier(resa.user, message, lien=lien)
 
 
 # ViewSet pour les événements
@@ -186,14 +204,28 @@ class EventViewSet(viewsets.ModelViewSet):
         return EventDetailSerializer
 
     def get_queryset(self):
-        
-        
+        # =====================================================================
+        #  PRINCIPE DE LA RECHERCHE
+        #  Tout se fait dans UNE seule requête, exécutée par PostgreSQL :
+        #    1. recherche texte (si l'utilisateur a tapé des mots)
+        #    2. filtres cumulés (catégorie, ville, prix, date, bons plans, tags)
+        #    3. règles de visibilité (le public ne voit que le publié + validé)
+        #    4. tri final (pertinence, date, prix, popularité, ou proximité)
+        #  Chaque étape RÉDUIT la liste des résultats.
+        # =====================================================================
+
+        # select_related / prefetch_related : on charge la catégorie, l'organisateur,
+        # les tags et les billets en même temps -> évite des requêtes SQL en trop.
         qs = Event.objects.select_related('categorie', 'organisateur') \
                           .prefetch_related('tags', 'types_billets')
         user = self.request.user
         params = self.request.query_params
 
-        
+        # === ÉTAPE 1 : RECHERCHE TEXTUELLE (PostgreSQL full-text + unaccent) ===
+        # - minimum 2 caractères
+        # - un mois dans la requête est détecté ("concert juillet" = concerts DE juillet)
+        # - compréhension du français : "festivals" trouve "festival"
+        # - insensible aux accents dans les deux sens ("theatre" trouve "Théâtre")
         q = (params.get('q') or '').strip()
         self._search_active = False
 
@@ -235,15 +267,17 @@ class EventViewSet(viewsets.ModelViewSet):
                 self._search_active = True
 
                 # On enregistre la recherche dans l'historique (user connecté).
-                
+                # Ça alimentera plus tard les recommandations personnalisées.
                 if user.is_authenticated:
                     SearchHistory.objects.create(user=user, terme=q_texte[:255])
 
             if mois_list:
                 qs = qs.filter(date_evenement__month__in=mois_list)
 
-        # LES FILTRES 
-        
+        # === ÉTAPE 2 : LES FILTRES ===
+        # Chaque filtre actif réduit encore la liste. Ils se CUMULENT (logique "ET") :
+        # ex. ville=Tunis + categorie=Tech => seulement les events tech DE Tunis.
+
         # Multi-catégories
         categorie = params.get('categorie')
         if categorie:
@@ -267,6 +301,21 @@ class EventViewSet(viewsets.ModelViewSet):
                 event=OuterRef('pk'), is_bon_plan=True
             )
             qs = qs.annotate(has_bp=Exists(bon_plan_subquery)).filter(has_bp=True)
+
+        # Public cible (enfants / jeunes / adultes) — ex. ?public=enfants,jeunes
+        # On garde les events qui visent AU MOINS UN des publics demandés (OU).
+        public = params.get('public')
+        if public:
+            publics_list = [p.strip().lower() for p in public.split(',') if p.strip()]
+            public_query = Q()
+            if 'enfants' in publics_list:
+                public_query |= Q(public_enfants=True)
+            if 'jeunes' in publics_list:
+                public_query |= Q(public_jeunes=True)
+            if 'adultes' in publics_list:
+                public_query |= Q(public_adultes=True)
+            if public_query:
+                qs = qs.filter(public_query)
 
         # Tags
         tag = params.get('tag')
@@ -303,7 +352,9 @@ class EventViewSet(viewsets.ModelViewSet):
             except (ValueError, TypeError):
                 pass
 
-        #  RÈGLES DE VISIBILITÉ 
+        # === ÉTAPE 3 : RÈGLES DE VISIBILITÉ (selon qui regarde) ===
+        # Le public ne voit que les événements publiés ET validés par l'admin.
+        # L'organisateur voit en plus les siens ; l'admin voit tout.
         if not user.is_authenticated:
             qs = qs.filter(statut='publie', is_valide=True)
         elif user.role == 'admin':
@@ -336,7 +387,7 @@ class EventViewSet(viewsets.ModelViewSet):
             now = timezone.now()
             qs = qs.filter(date_evenement__gte=now)
 
-        #  LE TRI 
+        # === ÉTAPE 4 : LE TRI (toujours en dernier, une fois la liste filtrée) ===
         sort = params.get('sort')
 
         if sort == 'date_asc':
@@ -368,7 +419,7 @@ class EventViewSet(viewsets.ModelViewSet):
                     getattr(user, 'ville', '') if user.is_authenticated else ''
                 )
                 if user_ville:
-                    # is_same_city = 1 pour la ville du user, 0 sinon  tri décroissant
+                    # is_same_city = 1 pour la ville du user, 0 sinon -> tri décroissant
                     qs = qs.annotate(
                         is_same_city=Case(
                             When(ville__iexact=user_ville, then=Value(1)),
@@ -389,7 +440,9 @@ class EventViewSet(viewsets.ModelViewSet):
 
         return qs
 
-    
+    # Empêche un user pas encore organisateur de soumettre autre chose qu'un brouillon.
+    # Le serializer recalcule statut via is_draft : on force donc is_draft=True ici
+    # directement dans validated_data pour ne pas dépendre du payload frontend.
     def perform_create(self, serializer):
         user = self.request.user
         is_organisateur = user.is_organisateur or user.role == 'admin'
@@ -398,6 +451,41 @@ class EventViewSet(viewsets.ModelViewSet):
             serializer.validated_data['is_draft'] = True
 
         serializer.save(organisateur=user, is_valide=False)
+
+    # À chaque modification d'un event PUBLIÉ, on prévient les participants
+    # si un détail important a changé (date/heure, lieu, ville).
+    def perform_update(self, serializer):
+        event = serializer.instance
+        # Ancien état (avant sauvegarde)
+        ancien = {
+            'date': event.date_evenement,
+            'lieu': event.lieu,
+            'ville': event.ville,
+        }
+        etait_publie = event.statut == 'publie'
+
+        event = serializer.save()
+
+        # On ne notifie que si l'event est publié (un brouillon n'a pas de participants)
+        if not etait_publie:
+            return
+
+        changements = []
+        if ancien['date'] != event.date_evenement:
+            changements.append("la date/heure")
+        if ancien['lieu'] != event.lieu:
+            changements.append("le lieu")
+        if ancien['ville'] != event.ville:
+            changements.append("la ville")
+
+        if changements:
+            quoi = ", ".join(changements)
+            _notifier_participants(
+                event,
+                f"L'événement « {event.titre} » a été modifié ({quoi}). "
+                f"Consultez les nouvelles informations.",
+                lien=f"/event/{event.id}",
+            )
 
     # GET /api/events/recommandations/
     # Recommandations personnalisées : intérêts + boost ville
@@ -446,8 +534,38 @@ class EventViewSet(viewsets.ModelViewSet):
         serializer = EventListSerializer(results, many=True, context={'request': request})
         return Response({'results': serializer.data, 'count': len(results)})
 
+    # GET /api/events/suggestions/?q=...
+    # Suggestions rapides pour la barre de recherche (autocomplétion).
+    # Renvoie quelques titres d'événements + catégories qui matchent la saisie.
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='suggestions',
+        permission_classes=[permissions.AllowAny],
+    )
+    def suggestions(self, request):
+        q = (request.query_params.get('q') or '').strip()
+        if len(q) < 2:
+            return Response({'events': [], 'categories': []})
+
+        now = timezone.now()
+        # Jusqu'à 6 événements publiés/à venir dont le titre contient la saisie
+        events = Event.objects.filter(
+            statut='publie', is_valide=True, date_evenement__gte=now,
+            titre__unaccent__icontains=q,
+        ).values('id', 'titre')[:6]
+
+        # Jusqu'à 4 catégories dont le nom contient la saisie
+        cats = Categorie.objects.filter(
+            is_validee=True, nom__unaccent__icontains=q,
+        ).values('id', 'nom', 'slug')[:4]
+
+        return Response({'events': list(events), 'categories': list(cats)})
+
     # GET /api/events/recommandations-perso/
-    # Recommandations COMPORTEMENTALES 
+    # Recommandations COMPORTEMENTALES : on déduit les catégories préférées
+    # du user à partir de ses actions réelles (réservations, favoris, vues,
+    # recherches), puis on recommande les events de ces catégories.
     @action(
         detail=False,
         methods=['get'],
@@ -458,7 +576,10 @@ class EventViewSet(viewsets.ModelViewSet):
         user = request.user
         now = timezone.now()
 
-        
+        # ===== ÉTAPE 1 : score d'affinité par catégorie =====
+        # On compte les actions du user, regroupées par catégorie d'event, et on
+        # applique un poids : réserver (engagement fort) pèse plus que voir.
+        #   affinité = 3xréservations + 2xfavoris + 1xvues + 2xrecherches
         scores = {}  # {categorie_id: score}
 
         def add(cat_id, points):
@@ -483,14 +604,15 @@ class EventViewSet(viewsets.ModelViewSet):
         ).values_list('event__categorie_id', flat=True):
             add(cat_id, 1)
 
-        
+        # Recherches (poids 2) : on relie un terme à une catégorie si le terme
+        # correspond au nom d'une catégorie (ex: "concert" -> catégorie Concert).
         termes = SearchHistory.objects.filter(user=user).values_list('terme', flat=True)
         for terme in termes:
             cat = Categorie.objects.filter(nom__unaccent__iexact=terme.strip()).first()
             if cat:
                 add(cat.id, 2)
 
-        #  cold start 
+        # ===== ÉTAPE 2 : cold start =====
         # Pas encore d'actions => on retombe sur les intérêts déclarés
         # à l'inscription (comportement de la fonction recommandations classique).
         if not scores:
@@ -501,7 +623,7 @@ class EventViewSet(viewsets.ModelViewSet):
                 scores.items(), key=lambda kv: kv[1], reverse=True
             )]
 
-        # events à recommander 
+        # ===== ÉTAPE 3 : events à recommander =====
         base_qs = Event.objects.filter(
             statut='publie',
             is_valide=True,
@@ -516,6 +638,7 @@ class EventViewSet(viewsets.ModelViewSet):
             base_qs = base_qs.exclude(id__in=seen_ids)
 
         # On garde les events des catégories préférées, dans l'ordre d'affinité.
+        # (Case/When permet de trier selon la position dans user_cat_ids.)
         if user_cat_ids:
             ordering = Case(
                 *[When(categorie_id=cid, then=Value(i)) for i, cid in enumerate(user_cat_ids)],
@@ -582,7 +705,7 @@ class EventViewSet(viewsets.ModelViewSet):
     )
     def decouvertes(self, request):
         # Miroir des recommandations : on EXCLUT ses catégories d'intérêt
-        
+        # (.exclude au lieu de .filter) pour élargir ses horizons.
         user = request.user
         now = timezone.now()
         user_cat_ids = list(user.interets.values_list('id', flat=True))
@@ -630,7 +753,10 @@ class EventViewSet(viewsets.ModelViewSet):
         ).select_related('categorie', 'organisateur') \
          .prefetch_related('tags', 'types_billets')
 
-        # SCORE DE POPULARITÉ 
+        # SCORE DE POPULARITÉ (engagement réel) :
+        #   popularite = 3 x réservations confirmées + 2 x favoris + 1 x vues
+        # Une réservation (engagement fort) pèse plus qu'un favori, qui pèse plus
+        # qu'une simple vue. En cas d'égalité, l'événement le plus récent d'abord.
         populaires = base_qs.annotate(
             nb_reservations=Count(
                 'reservations',
@@ -825,7 +951,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
     # POST /api/events/{id}/duplicate/
     # Crée une copie d'un événement (en brouillon, date remise à blanc)
-    # Réservé au propriétaire ou à un admin 
+    # Réservé au propriétaire ou à un admin (via has_object_permission).
     @action(
         detail=True,
         methods=['post'],
@@ -898,6 +1024,19 @@ class EventViewSet(viewsets.ModelViewSet):
             event.motif_refus = motif
         event.save()
 
+        # Notifier TOUS les participants (réservations confirmées) de l'annulation
+        msg = f"L'événement « {event.titre} » a été annulé."
+        if motif:
+            msg += f" Motif : {motif}"
+        _notifier_participants(event, msg, lien=f"/event/{event.id}")
+
+        # Prévenir les admins de l'annulation de l'événement
+        notifier_admins(
+            f"L'événement « {event.titre} » (organisateur : {event.organisateur.prenom} "
+            f"{event.organisateur.nom}) a été annulé.",
+            lien="/admin",
+        )
+
         serializer = EventDetailSerializer(event, context={'request': request})
         return Response(serializer.data)
 
@@ -955,6 +1094,12 @@ class EventViewSet(viewsets.ModelViewSet):
         event.statut = 'en_attente'
         event.save()
 
+        # Prévenir les admins qu'un nouvel événement attend leur validation
+        notifier_admins(
+            f"Nouvel événement à valider : « {event.titre} » par {event.organisateur.prenom} {event.organisateur.nom}.",
+            lien="/admin",
+        )
+
         serializer = EventDetailSerializer(event, context={'request': request})
         return Response(serializer.data)
 
@@ -971,6 +1116,12 @@ class EventViewSet(viewsets.ModelViewSet):
         event.statut = 'publie'
         event.valide_par = request.user
         event.save()
+        # Notifier l'organisateur que son événement est publié
+        notifier(
+            event.organisateur,
+            f"Votre événement « {event.titre} » a été validé et est maintenant publié.",
+            lien=f"/event/{event.id}",
+        )
         return Response({'status': 'validé'})
 
     # POST /api/events/{id}/refuser/ (admin uniquement)
@@ -986,6 +1137,11 @@ class EventViewSet(viewsets.ModelViewSet):
         event.motif_refus = request.data.get('motif', '')
         event.valide_par = request.user
         event.save()
+        # Notifier l'organisateur du refus, avec le motif s'il y en a un
+        msg = f"Votre événement « {event.titre} » a été refusé."
+        if event.motif_refus:
+            msg += f" Motif : {event.motif_refus}"
+        notifier(event.organisateur, msg, lien=f"/event/{event.id}")
         return Response({'status': 'refusé', 'motif': event.motif_refus})
 
 
@@ -1111,6 +1267,22 @@ class ReservationViewSet(viewsets.ModelViewSet):
         reservation.date_annulation = timezone.now()
         reservation.motif_annulation = (request.data.get('reason') or '').strip()
         reservation.save()
+
+        event = reservation.event
+        user = reservation.user
+        # Notifier l'organisateur qu'une réservation a été annulée
+        notifier(
+            event.organisateur,
+            f"Une réservation pour « {event.titre} » a été annulée "
+            f"({user.prenom} {user.nom}, réf {reservation.code_reference}).",
+            lien=f"/event/{event.id}",
+        )
+        # Confirmer au participant l'annulation de SA réservation
+        notifier(
+            user,
+            f"Votre réservation pour « {event.titre} » (réf {reservation.code_reference}) a bien été annulée.",
+            lien="/my-reservations",
+        )
         return Response(
             ReservationReadSerializer(reservation, context={'request': request}).data
         )

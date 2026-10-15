@@ -5,11 +5,24 @@ from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from .models import DemandeOrganisateur, User
+from .models import DemandeOrganisateur, User, HistoriqueDemandeOrganisateur
 from .serializers import (
     DemandeOrganisateurCreateSerializer,
     DemandeOrganisateurReadSerializer,
+    HistoriqueDemandeSerializer,
 )
+from events.models import notifier, notifier_admins
+from .models import historiser_demande
+
+
+class MonHistoriqueDemandesView(ListAPIView):
+    """GET /api/auth/demande-organisateur/historique/
+    Historique des demandes d'organisateur de l'utilisateur connecté."""
+    serializer_class = HistoriqueDemandeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return HistoriqueDemandeOrganisateur.objects.filter(user=self.request.user)
 
 
 # COTÉ USER
@@ -46,6 +59,16 @@ class DemandeOrganisateurView(APIView):
         serializer = DemandeOrganisateurCreateSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
+            # Historique : demande soumise
+            historiser_demande(
+                request.user, 'soumise',
+                nom_organisation=serializer.instance.nom_organisation,
+            )
+            # Prévenir les admins d'une nouvelle demande à traiter
+            notifier_admins(
+                f"Nouvelle demande organisateur de {request.user.prenom} {request.user.nom}.",
+                lien="/admin",
+            )
             return Response(
                 DemandeOrganisateurReadSerializer(serializer.instance).data,
                 status=status.HTTP_201_CREATED
@@ -64,7 +87,15 @@ class DemandeOrganisateurView(APIView):
                     {'detail': "Vous ne pouvez pas supprimer une demande déjà validée."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            nom_org = demande.nom_organisation
             demande.delete()
+            # Historique : demande annulée par le user
+            historiser_demande(request.user, 'annulee', nom_organisation=nom_org)
+            # Prévenir les admins que la demande a été annulée par l'utilisateur
+            notifier_admins(
+                f"La demande organisateur de {request.user.prenom} {request.user.nom} a été annulée.",
+                lien="/admin",
+            )
             return Response({'detail': 'Demande supprimée'}, status=status.HTTP_200_OK)
         except DemandeOrganisateur.DoesNotExist:
             return Response({'detail': 'Aucune demande'}, status=status.HTTP_404_NOT_FOUND)
@@ -134,6 +165,17 @@ class AdminValiderDemandeView(APIView):
         demande.user.is_organisateur = True
         demande.user.save()
 
+        # Historique : demande acceptée
+        historiser_demande(demande.user, 'acceptee', nom_organisation=demande.nom_organisation)
+
+        # Notifier l'utilisateur que sa demande a été acceptée
+        # (lien vers sa demande : il y voit le détail + l'accès au tableau de bord)
+        notifier(
+            demande.user,
+            "Votre demande pour devenir organisateur a été acceptée ! Vous pouvez désormais créer des événements.",
+            lien="/devenir-organisateur",
+        )
+
         return Response({
             'detail': 'Demande validée. L\'utilisateur est maintenant organisateur.',
             'demande': DemandeOrganisateurReadSerializer(demande).data
@@ -165,6 +207,16 @@ class AdminRefuserDemandeView(APIView):
         demande.date_traitement = timezone.now()
         demande.traite_par = request.user
         demande.save()
+
+        # Historique : demande refusée (avec motif)
+        historiser_demande(demande.user, 'refusee', motif=motif, nom_organisation=demande.nom_organisation)
+
+        # Notifier l'utilisateur du refus, avec le motif
+        notifier(
+            demande.user,
+            f"Votre demande pour devenir organisateur a été refusée. Motif : {motif}",
+            lien="/demande-organisateur",
+        )
 
         return Response({
             'detail': 'Demande refusée.',

@@ -4,8 +4,16 @@ import {
   Mail, Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
-import { login as loginApi } from "../../services/authService";
+import {
+  login as loginApi,
+  loginWithGoogle,
+  loginWithFacebook,
+} from "../../services/authService";
 import styles from "./Login.module.css";
+
+// Client ID Google fourni par le compte développeur de TWINKLE (via .env front).
+// Tant qu'il est vide, le bouton Google prévient que la config est manquante.
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -83,6 +91,77 @@ export default function Login() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Une fois le { access, refresh, user } reçu du backend (login social),
+  // on fait exactement comme le login classique : on stocke et on redirige.
+  const finishSocialLogin = ({ access, refresh, user }) => {
+    login(user, access, refresh);
+    if (redirectTo) navigate(redirectTo);
+    else if (user.role === "admin") navigate("/admin");
+    else if (user.is_organisateur) navigate("/dashboard");
+    else navigate("/home");
+  };
+
+  // Connexion Google via Google Identity Services (chargé dynamiquement).
+  const handleGoogleLogin = () => {
+    setGlobalError("");
+    if (!GOOGLE_CLIENT_ID) {
+      setGlobalError(
+        "La connexion Google n'est pas encore configurée (clé Client ID manquante)."
+      );
+      return;
+    }
+    const start = () => {
+      /* global google */
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (resp) => {
+          try {
+            const data = await loginWithGoogle(resp.credential);
+            finishSocialLogin(data);
+          } catch {
+            setGlobalError("Échec de la connexion Google.");
+          }
+        },
+      });
+      google.accounts.id.prompt(); // ouvre la fenêtre Google
+    };
+    // Charge le SDK Google une seule fois
+    if (window.google?.accounts?.id) {
+      start();
+    } else {
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.onload = start;
+      s.onerror = () => setGlobalError("Impossible de charger Google.");
+      document.body.appendChild(s);
+    }
+  };
+
+  // Connexion Facebook : nécessite le SDK Facebook + App ID (côté entreprise).
+  const handleFacebookLogin = () => {
+    setGlobalError("");
+    if (!window.FB) {
+      setGlobalError(
+        "La connexion Facebook n'est pas encore configurée (SDK/App ID manquant)."
+      );
+      return;
+    }
+    window.FB.login(
+      (response) => {
+        const token = response?.authResponse?.accessToken;
+        if (!token) {
+          setGlobalError("Connexion Facebook annulée.");
+          return;
+        }
+        loginWithFacebook(token)
+          .then(finishSocialLogin)
+          .catch(() => setGlobalError("Échec de la connexion Facebook."));
+      },
+      { scope: "email" }
+    );
   };
 
   return (
@@ -195,16 +274,14 @@ export default function Login() {
           <button
             type="button"
             className={styles.oauthBtn}
-            disabled
-            title="Disponible bientôt"
+            onClick={handleGoogleLogin}
           >
             <GoogleIcon /> Google
           </button>
           <button
             type="button"
             className={styles.oauthBtn}
-            disabled
-            title="Disponible bientôt"
+            onClick={handleFacebookLogin}
           >
             <FacebookIcon /> Facebook
           </button>

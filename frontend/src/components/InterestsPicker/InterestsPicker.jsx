@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Tag } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { fetchInterets } from "../../services/interetService";
 import styles from "./InterestsPicker.module.css";
+
+// Affiche l'icône Lucide dont le NOM est stocké en base (ex. "Palette", "Film").
+// Si le nom ne correspond à aucune icône, on affiche une icône générique (Tag).
+function CategoryIcon({ name, size = 16 }) {
+  const Ico = (name && LucideIcons[name]) || Tag;
+  return <Ico size={size} />;
+}
 
 
 export default function InterestsPicker({
@@ -98,7 +106,7 @@ export default function InterestsPicker({
               onClick={() => toggleInteret(interet.id)}
               className={`${styles.chip} ${isSelected ? styles.selected : ""}`}
             >
-              <span className={styles.chipIcon}>{interet.icone}</span>
+              <span className={styles.chipIcon}><CategoryIcon name={interet.icone} /></span>
               <span className={styles.chipLabel}>{interet.nom}</span>
             </button>
           );

@@ -87,8 +87,10 @@ function AppContent() {
           <Route path="/logout" element={<Logout />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
-          <Route path="/discover" element={<Placeholder name="Découvrir" />} />
-          <Route path="/search" element={<Search />} />
+          {/* Découvrir = la page de recherche (filtres, tri, résultats) */}
+          <Route path="/discover" element={<Search />} />
+          {/* Ancien lien /search : on redirige vers /discover en gardant les paramètres */}
+          <Route path="/search" element={<SearchRedirect />} />
           <Route path="/contact" element={<Placeholder name="Contact" />} />
           <Route path="/event/:id" element={<EventDetail />} />
 
@@ -172,6 +174,13 @@ function AppContent() {
   );
 }
 
+// /search a été fusionné dans /discover : on redirige en gardant les paramètres
+// (q, filtres, tri) pour ne casser aucun lien existant.
+function SearchRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/discover${location.search}`} replace />;
+}
+
 // Redirige vers la home selon le rôle
 function HomeRouter() {
   const { user, isAuthenticated, isLoaded } = useAuth();
@@ -198,4 +207,3 @@ function Placeholder({ name }) {
     </div>
   );
 }
-

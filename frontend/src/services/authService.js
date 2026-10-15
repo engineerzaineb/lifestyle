@@ -44,6 +44,26 @@ export async function register(userData) {
   return data;
 }
 
+/**
+ * Connexion sociale Google.
+ * @param {string} token - l'id_token obtenu côté client via Google
+ * @returns {object} { access, refresh, user }
+ */
+export async function loginWithGoogle(token) {
+  const { data } = await api.post("/auth/social/google/", { token });
+  return data;
+}
+
+/**
+ * Connexion sociale Facebook.
+ * @param {string} token - l'access_token obtenu côté client via Facebook
+ * @returns {object} { access, refresh, user }
+ */
+export async function loginWithFacebook(token) {
+  const { data } = await api.post("/auth/social/facebook/", { token });
+  return data;
+}
+
 // Déconnexion utilisateur (blacklist le refresh token côté backend)
 export async function logout() {
   if (USE_MOCK) {
@@ -126,6 +146,16 @@ export async function getMyDemandeOrganisateur() {
     }
     throw err;
   }
+}
+
+/**
+ * Récupère l'historique des demandes d'organisateur du user connecté.
+ * @returns {Array} [{ id, evenement, evenement_label, motif, nom_organisation, created_at }]
+ */
+export async function fetchMonHistoriqueDemandes() {
+  if (USE_MOCK) return [];
+  const { data } = await api.get("/auth/demande-organisateur/historique/");
+  return data.results || data;
 }
 
 /**

@@ -4,6 +4,7 @@ export function getDefaultFilters() {
     q: "",
     categorie_slugs: [],
     villes: [],
+    publics: [],          // public cible : "enfants" | "jeunes" | "adultes"
     bon_plan: false,
     prix_min: 0,
     prix_max: 500,
@@ -12,6 +13,13 @@ export function getDefaultFilters() {
     tag: "",
   };
 }
+
+// Les publics cibles proposés dans les filtres
+export const PUBLIC_OPTIONS = [
+  { value: "enfants", label: "Enfants" },
+  { value: "jeunes", label: "Jeunes" },
+  { value: "adultes", label: "Adultes" },
+];
 
 // Bornes du slider de prix
 export const PRIX_MIN_DEFAULT = 0;
@@ -41,6 +49,11 @@ export function parseFiltersFromUrl(searchParams) {
   const villeParam = searchParams.get("ville");
   if (villeParam) {
     filters.villes = villeParam.split(",").filter(Boolean);
+  }
+
+  const publicParam = searchParams.get("public");
+  if (publicParam) {
+    filters.publics = publicParam.split(",").filter(Boolean);
   }
 
   if (searchParams.get("bon_plan") === "true" || searchParams.get("has_bon_plan") === "true") {
@@ -74,6 +87,9 @@ export function buildUrlFromFilters(filters, sort) {
   if (filters.villes?.length) {
     params.set("ville", filters.villes.join(","));
   }
+  if (filters.publics?.length) {
+    params.set("public", filters.publics.join(","));
+  }
   if (filters.bon_plan) params.set("bon_plan", "true");
   if (filters.prix_min && filters.prix_min !== PRIX_MIN_DEFAULT) {
     params.set("prix_min", filters.prix_min);
@@ -100,6 +116,9 @@ export function buildApiParamsFromFilters(filters, sort) {
   if (filters.villes?.length) {
     params.ville = filters.villes.join(",");
   }
+  if (filters.publics?.length) {
+    params.public = filters.publics.join(",");
+  }
   if (filters.bon_plan) params.has_bon_plan = "true";
   if (filters.prix_min && filters.prix_min !== PRIX_MIN_DEFAULT) {
     params.prix_min = filters.prix_min;
@@ -121,6 +140,7 @@ export function hasActiveFilters(filters) {
     !!filters.q ||
     (filters.categorie_slugs?.length > 0) ||
     (filters.villes?.length > 0) ||
+    (filters.publics?.length > 0) ||
     !!filters.bon_plan ||
     (filters.prix_min !== PRIX_MIN_DEFAULT) ||
     (filters.prix_max !== PRIX_MAX_DEFAULT) ||
@@ -135,6 +155,7 @@ export function countActiveFilters(filters) {
   let count = 0;
   if (filters.categorie_slugs?.length) count += filters.categorie_slugs.length;
   if (filters.villes?.length) count += filters.villes.length;
+  if (filters.publics?.length) count += filters.publics.length;
   if (filters.bon_plan) count++;
   if (filters.prix_min !== PRIX_MIN_DEFAULT || filters.prix_max !== PRIX_MAX_DEFAULT) count++;
   if (filters.date) count++;

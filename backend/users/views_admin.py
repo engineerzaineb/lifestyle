@@ -5,6 +5,8 @@ from django.db.models import Q, Count
 
 from .models import User, DemandeOrganisateur, Interet
 from .serializers import AdminUserListSerializer
+from events.models import notifier
+from .models import historiser_demande
 
 
 class IsAdminRole(permissions.BasePermission):
@@ -110,9 +112,28 @@ class AdminUserToggleOrganisateurView(APIView):
 
         # Cohérence : on aligne la demande éventuelle sur le nouvel état
         demande = getattr(user, 'demande_organisateur', None)
-        if demande and user.is_organisateur and demande.statut != 'valide':
-            demande.statut = 'valide'
-            demande.save(update_fields=['statut'])
+        if user.is_organisateur:
+            # PROMOTION
+            if demande and demande.statut != 'valide':
+                demande.statut = 'valide'
+                demande.save(update_fields=['statut'])
+            notifier(
+                user,
+                "Vous êtes désormais organisateur sur Eventu ! Vous pouvez créer et publier vos événements.",
+                lien="/dashboard",
+            )
+        else:
+            # RÉTROGRADATION : on supprime la demande pour qu'il puisse en refaire une
+            nom_org = demande.nom_organisation if demande else ''
+            if demande:
+                demande.delete()
+            # Historique : statut organisateur retiré
+            historiser_demande(user, 'retiree', nom_organisation=nom_org)
+            notifier(
+                user,
+                "Votre statut d'organisateur a été retiré. Vous pouvez soumettre une nouvelle demande si vous le souhaitez.",
+                lien="/devenir-organisateur",
+            )
 
         return Response(AdminUserListSerializer(user).data)
 

@@ -42,7 +42,16 @@ export default function CreateEvent() {
     cover: null,
     coverPreview: "",
     publishMode: "publish",
+    // Public cible (plusieurs possibles) — adultes par défaut
+    public_enfants: false,
+    public_jeunes: false,
+    public_adultes: true,
+    // Proposition d'une nouvelle catégorie (sera validée par un admin)
+    nouvelle_categorie_nom: "",
   });
+
+  // Affiche/masque le champ "nouvelle catégorie"
+  const [showNouvelleCat, setShowNouvelleCat] = useState(false);
 
   // helper pour mettre à jour un champ
   const updateField = (field, value) => {
@@ -57,7 +66,10 @@ export default function CreateEvent() {
     const errs = {};
     if (!form.titre.trim()) errs.titre = "Titre requis";
     if (!form.description.trim()) errs.description = "Description requise";
-    if (!form.categorie_slug) errs.categorie_slug = "Catégorie requise";
+    // Catégorie requise : soit une existante, soit une nouvelle proposée
+    if (!form.categorie_slug && !form.nouvelle_categorie_nom.trim()) {
+      errs.categorie_slug = "Catégorie requise";
+    }
     if (!form.date_evenement) errs.date_evenement = "Date requise";
     if (!form.heure_evenement) errs.heure_evenement = "Heure requise";
     if (!form.lieu.trim()) errs.lieu = "Lieu requis";
@@ -150,10 +162,21 @@ export default function CreateEvent() {
         is_draft: form.publishMode === "draft",
       };
 
+      // Nouvelle catégorie proposée : on envoie l'objet attendu par l'API
+      // ({nom, couleur}). Le backend la crée en attente de validation admin.
+      if (showNouvelleCat && form.nouvelle_categorie_nom.trim()) {
+        payload.nouvelle_categorie = {
+          nom: form.nouvelle_categorie_nom.trim(),
+          couleur: "#4F46E5",
+        };
+        payload.categorie_slug = "";
+      }
+
       // On enlève les champs UI inutiles pour l'API
       delete payload.types_billets;
       delete payload.coverPreview;
       delete payload.publishMode;
+      delete payload.nouvelle_categorie_nom;
 
       await createEvent(payload);
 
@@ -201,6 +224,8 @@ export default function CreateEvent() {
               setTagInput={setTagInput}
               handleTagKeyDown={handleTagKeyDown}
               removeTag={removeTag}
+              showNouvelleCat={showNouvelleCat}
+              setShowNouvelleCat={setShowNouvelleCat}
             />
           )}
 
@@ -300,7 +325,7 @@ function StepsProgress({ currentStep }) {
   );
 }
 
-function Step1Infos({ form, errors, updateField, tagInput, setTagInput, handleTagKeyDown, removeTag }) {
+function Step1Infos({ form, errors, updateField, tagInput, setTagInput, handleTagKeyDown, removeTag, showNouvelleCat, setShowNouvelleCat }) {
   const categoryEntries = Object.entries(CATEGORIES);
 
   return (
@@ -343,17 +368,79 @@ function Step1Infos({ form, errors, updateField, tagInput, setTagInput, handleTa
               <button
                 key={slug}
                 type="button"
-                onClick={() => updateField("categorie_slug", slug)}
-                className={`${styles.categoryBtn} ${form.categorie_slug === slug ? styles.selected : ""}`}
+                onClick={() => {
+                  updateField("categorie_slug", slug);
+                  // on annule une éventuelle proposition en cours
+                  setShowNouvelleCat(false);
+                  updateField("nouvelle_categorie_nom", "");
+                }}
+                className={`${styles.categoryBtn} ${form.categorie_slug === slug && !showNouvelleCat ? styles.selected : ""}`}
               >
                 <span className={styles.categoryIcon}>{cat.emoji}</span>
                 {cat.nom}
               </button>
             ))}
+            {/* Bouton : proposer une nouvelle catégorie */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowNouvelleCat(true);
+                updateField("categorie_slug", "");  // on déselectionne les autres
+              }}
+              className={`${styles.categoryBtn} ${showNouvelleCat ? styles.selected : ""}`}
+            >
+              <span className={styles.categoryIcon}>➕</span>
+              Autre…
+            </button>
           </div>
+
+          {/* Champ de saisie de la nouvelle catégorie */}
+          {showNouvelleCat && (
+            <div style={{ marginTop: 10 }}>
+              <input
+                type="text"
+                value={form.nouvelle_categorie_nom}
+                onChange={(e) => updateField("nouvelle_categorie_nom", e.target.value)}
+                placeholder="Nom de la nouvelle catégorie"
+                className={styles.searchInput || ""}
+                style={{
+                  width: "100%", padding: "10px 12px", fontSize: 14,
+                  border: "1px solid var(--color-border)", borderRadius: 8,
+                }}
+              />
+              <p style={{ fontSize: 11, color: "var(--color-text-subtle)", marginTop: 4 }}>
+                Elle sera soumise à la validation d'un administrateur.
+              </p>
+            </div>
+          )}
+
           {errors.categorie_slug && (
             <p style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4 }}>{errors.categorie_slug}</p>
           )}
+        </div>
+
+        {/* Public cible (plusieurs choix possibles) */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, display: "block" }}>
+            Public cible <span style={{ color: "var(--color-text-subtle)", fontSize: 11, fontWeight: 400 }}>(un ou plusieurs)</span>
+          </label>
+          <div className={styles.categoriesGrid}>
+            {[
+              { field: "public_enfants", label: "Enfants", emoji: "🧒" },
+              { field: "public_jeunes", label: "Jeunes", emoji: "🧑" },
+              { field: "public_adultes", label: "Adultes", emoji: "🧑‍💼" },
+            ].map((p) => (
+              <button
+                key={p.field}
+                type="button"
+                onClick={() => updateField(p.field, !form[p.field])}
+                className={`${styles.categoryBtn} ${form[p.field] ? styles.selected : ""}`}
+              >
+                <span className={styles.categoryIcon}>{p.emoji}</span>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tags */}

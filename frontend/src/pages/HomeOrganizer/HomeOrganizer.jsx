@@ -21,10 +21,10 @@ export default function HomeOrganizer() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadData() {
-      setLoading(true);
+    // silencieux = rafraîchissement de fond (polling), sans afficher le spinner
+    async function loadData(silencieux = false) {
+      if (!silencieux) setLoading(true);
       try {
-        
         const data = await fetchEvents({ mes_events: true });
         if (cancelled) return;
 
@@ -35,13 +35,16 @@ export default function HomeOrganizer() {
       } catch (err) {
         console.error("Erreur HomeOrganizer:", err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !silencieux) setLoading(false);
       }
     }
 
     loadData();
+    // Polling : on rafraîchit les stats toutes les 30 s (effet "temps réel")
+    const interval = setInterval(() => loadData(true), 30000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 

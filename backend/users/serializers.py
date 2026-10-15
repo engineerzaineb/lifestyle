@@ -199,14 +199,47 @@ class AuthResponseSerializer:
 
 class DemandeOrganisateurCreateSerializer(serializers.ModelSerializer):
     """Pour créer une demande (côté user)"""
-    
+
+    # L'organisateur peut aussi PROPOSER des catégories qui n'existent pas encore.
+    # Elles sont créées en attente de validation admin (is_validee=False).
+    nouvelles_categories = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False, write_only=True,
+    )
+
     class Meta:
         model = DemandeOrganisateur
         fields = [
             'nom_organisation', 'type_organisation', 'matricule_fiscal',
-            'adresse', 'telephone_pro', 'description', 'site_web', 'logo',
-            'categories_prevues',
+            'adresse', 'telephone_pro', 'description', 'site_web', 'reseaux_sociaux', 'logo',
+            'categories_prevues', 'nouvelles_categories',
         ]
+
+    def create(self, validated_data):
+        from django.utils.text import slugify
+        from events.models import Categorie
+
+        nouvelles = validated_data.pop('nouvelles_categories', [])
+        categories = validated_data.pop('categories_prevues', [])
+
+        demande = DemandeOrganisateur.objects.create(**validated_data)
+
+        # Catégories existantes cochées
+        if categories:
+            demande.categories_prevues.set(categories)
+
+        # Catégories proposées : on les crée (ou récupère) en attente de validation
+        for nom in nouvelles:
+            nom = (nom or '').strip()
+            if not nom:
+                continue
+            cat, _ = Categorie.objects.get_or_create(
+                slug=slugify(nom),
+                defaults={'nom': nom, 'is_validee': False, 'icone': 'FolderPlus'},
+            )
+            demande.categories_prevues.add(cat)
+
+        return demande
 
 
 class DemandeOrganisateurReadSerializer(serializers.ModelSerializer):
@@ -222,7 +255,7 @@ class DemandeOrganisateurReadSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user_email', 'user_nom', 'user_prenom',
             'nom_organisation', 'type_organisation', 'matricule_fiscal',
-            'adresse', 'telephone_pro', 'description', 'site_web', 'logo',
+            'adresse', 'telephone_pro', 'description', 'site_web', 'reseaux_sociaux', 'logo',
             'categories_prevues', 'categories_prevues_noms',
             'statut', 'motif_refus',
             'date_demande', 'date_traitement', 'traite_par_email',
@@ -231,6 +264,16 @@ class DemandeOrganisateurReadSerializer(serializers.ModelSerializer):
 
     def get_categories_prevues_noms(self, obj):
         return [c.nom for c in obj.categories_prevues.all()]
+
+
+class HistoriqueDemandeSerializer(serializers.ModelSerializer):
+    """Historique des événements de demande organisateur (côté user)."""
+    evenement_label = serializers.CharField(source='get_evenement_display', read_only=True)
+
+    class Meta:
+        from .models import HistoriqueDemandeOrganisateur
+        model = HistoriqueDemandeOrganisateur
+        fields = ['id', 'evenement', 'evenement_label', 'motif', 'nom_organisation', 'created_at']
     
 # ADMINISTRATION DES UTILISATEURS 
 

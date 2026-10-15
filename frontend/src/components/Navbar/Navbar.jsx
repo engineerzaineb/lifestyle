@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import styles from "./Navbar.module.css";
 import NotifBell from "../NotifBell/NotifBell";
+import NavSearch from "../NavSearch/NavSearch";
 
 
 export default function Navbar({ user = null, onLogout }) {
@@ -40,9 +41,11 @@ export default function Navbar({ user = null, onLogout }) {
           <nav className={styles.nav}>
             <NavbarLink to="/" icon={Home} label="Home" />
             <NavbarLink to="/discover" icon={Compass} label="Découvrir" />
-            <NavbarLink to="/search" icon={Search} label="Chercher" />
             <NavbarLink to="/contact" icon={Mail} label="Contact" />
           </nav>
+
+          {/* Barre de recherche (suggestions en direct -> page Découvrir) */}
+          <NavSearch />
 
           {/* Zone droite */}
           <div className={styles.rightZone}>

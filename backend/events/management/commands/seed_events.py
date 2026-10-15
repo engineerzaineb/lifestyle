@@ -648,6 +648,23 @@ class Command(BaseCommand):
             # Calcule la date de l'événement
             date_event = now + timedelta(days=event_data["jours_dans_futur"], hours=19)
 
+            # Public cible : déduit de la catégorie (pour avoir des données variées),
+            # ou pris depuis event_data s'il est précisé (clés : enfants/jeunes/adultes).
+            # Format du mapping : (enfants, jeunes, adultes)
+            PUBLIC_PAR_CATEGORIE = {
+                "Famille":  (True, True, True),
+                "Cinéma":   (True, True, True),
+                "Art":      (True, True, True),
+                "Food":     (False, True, True),
+                "Musique":  (False, True, True),
+                "Théâtre":  (False, True, True),
+                "Sport":    (True, True, True),
+            }
+            enf, jeu, adu = PUBLIC_PAR_CATEGORIE.get(event_data["categorie"], (False, False, True))
+            enf = event_data.get("public_enfants", enf)
+            jeu = event_data.get("public_jeunes", jeu)
+            adu = event_data.get("public_adultes", adu)
+
             # Crée l'événement
             event = Event.objects.create(
                 titre=event_data["titre"],
@@ -661,6 +678,9 @@ class Command(BaseCommand):
                 organisateur=organisateur,
                 statut="publie",
                 is_valide=True,
+                public_enfants=enf,
+                public_jeunes=jeu,
+                public_adultes=adu,
             )
 
             # Ajoute les tags

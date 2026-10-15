@@ -13,6 +13,7 @@ from .views import (
 )
 from .views_organisateur import (
     DemandeOrganisateurView,
+    MonHistoriqueDemandesView,
     AdminDemandesListView,
     AdminDemandeDetailView,
     AdminValiderDemandeView,
@@ -26,9 +27,10 @@ from .views_admin import (
     
 )
 from .views import (
-    PasswordResetRequestView, 
+    PasswordResetRequestView,
     PasswordResetConfirmView,
 )
+from .views_social import GoogleLoginView, FacebookLoginView
 
 urlpatterns = [
     # Auth 
@@ -36,6 +38,10 @@ urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
+
+    # Authentification sociale (OAuth Google / Facebook)
+    path('social/google/', GoogleLoginView.as_view(), name='social_google'),
+    path('social/facebook/', FacebookLoginView.as_view(), name='social_facebook'),
 
     # Utilisateur connecté 
     path('me/', MeView.as_view(), name='me'),
@@ -49,6 +55,7 @@ urlpatterns = [
 
     #  Demande organisateur (côté user) 
     path('demande-organisateur/', DemandeOrganisateurView.as_view(), name='demande-organisateur'),
+    path('demande-organisateur/historique/', MonHistoriqueDemandesView.as_view(), name='demande-historique'),
 
     # Demandes organisateur (côté admin) 
     path('admin/demandes-organisateur/', AdminDemandesListView.as_view(), name='admin-demandes-list'),

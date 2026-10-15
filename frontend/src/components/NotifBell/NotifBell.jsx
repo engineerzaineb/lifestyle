@@ -21,7 +21,13 @@ export default function NotifBell() {
       .catch(() => { /* silencieux */ });
   };
 
-  useEffect(() => { charger(); }, []);
+  // Chargement initial + polling : on rafraîchit la cloche toutes les 30 s
+  // pour un effet "temps réel" (sans WebSocket). On stoppe à la fermeture.
+  useEffect(() => {
+    charger();
+    const interval = setInterval(charger, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Ferme le menu si on clique ailleurs
   useEffect(() => {
@@ -53,13 +59,23 @@ export default function NotifBell() {
     } catch { /* ignore */ }
   };
 
+  // Ouvre/ferme le menu. À l'OUVERTURE, on marque tout comme lu : le badge
+  // rouge disparaît dès que l'utilisateur a vu ses notifications.
+  const toggleMenu = () => {
+    const willOpen = !open;
+    setOpen(willOpen);
+    if (willOpen && nonLues > 0) {
+      handleToutLu();
+    }
+  };
+
   const formatDate = (str) => new Date(str).toLocaleDateString("fr-FR", {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
   return (
     <div className={styles.wrapper} ref={ref}>
-      <button className={styles.bellBtn} onClick={() => setOpen((o) => !o)} aria-label="Notifications">
+      <button className={styles.bellBtn} onClick={toggleMenu} aria-label="Notifications">
         <Bell size={15} />
         {nonLues > 0 && <span className={styles.badge}>{nonLues}</span>}
       </button>

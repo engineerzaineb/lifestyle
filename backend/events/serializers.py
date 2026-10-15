@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.utils.text import slugify
 from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationItem
 from .fidelite import remise_fidelite_pct
-from .models import Notification
+from .models import Notification, notifier
 
 
 class CategorieSerializer(serializers.ModelSerializer):
@@ -163,6 +163,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'categorie_slug', 'nouvelle_categorie', 'tags_list',
             'types_billets_data', 'is_draft',
             'vues', 'inscriptions', 'revenue','is_favori',
+            'public_enfants', 'public_jeunes', 'public_adultes',
         ]
         read_only_fields = [
             'capacite', 'prix', 'is_valide', 'motif_refus',
@@ -492,6 +493,19 @@ class ReservationCreateSerializer(serializers.Serializer):
                     quantite=item['quantite'],
                     prix_unitaire=tb.prix,
                 )
+
+        # Notifier l'organisateur de la nouvelle réservation, avec le détail
+        # (hors transaction : la réservation est confirmée et commitée).
+        detail_billets = ", ".join(
+            f"{item['quantite']}x {billets[item['type_billet']].nom}"
+            for item in items_data
+        )
+        notifier(
+            event.organisateur,
+            f"Nouvelle réservation pour « {event.titre} » par {user.prenom} {user.nom} "
+            f"({detail_billets}) — total {total_paye} DT. Réf : {reservation.code_reference}.",
+            lien=f"/event/{event.id}",
+        )
 
         return reservation
     
