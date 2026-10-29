@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserLocation, Interet
+from .models import User, UserLocation, Interet, Pack, Abonnement
 
 
 # affichage du modèle User dans l'admin
@@ -50,3 +50,21 @@ class InteretAdmin(admin.ModelAdmin):
     search_fields = ['nom']
     prepopulated_fields = {'slug': ('nom',)}
     ordering = ['-is_official', 'nom']
+
+
+# packs organisateurs
+@admin.register(Pack)
+class PackAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'prix', 'duree', 'limite_evenements', 'commission_pct', 'is_actif', 'ordre']
+    list_filter = ['is_actif', 'duree']
+    search_fields = ['nom']
+    ordering = ['ordre', 'prix']
+
+
+# abonnements des organisateurs
+@admin.register(Abonnement)
+class AbonnementAdmin(admin.ModelAdmin):
+    list_display = ['organisateur', 'pack', 'statut', 'date_debut', 'date_fin']
+    list_filter = ['statut', 'pack']
+    search_fields = ['organisateur__email', 'organisateur__nom']
+    ordering = ['-date_debut']

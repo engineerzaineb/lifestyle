@@ -3,8 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q, Count
 
-from .models import User, DemandeOrganisateur, Interet
-from .serializers import AdminUserListSerializer
+from datetime import timedelta
+from django.utils import timezone
+
+from .models import User, DemandeOrganisateur, Interet, Pack, Abonnement
+from .serializers import AdminUserListSerializer, PackSerializer, serialiser_quota
 from events.models import notifier
 from .models import historiser_demande
 
@@ -171,3 +174,120 @@ class AdminStatsView(APIView):
                     statut='confirmee').count(),
             },
         })
+
+
+# PACKS ET ABONNEMENTS
+
+class AdminPackListCreateView(generics.ListCreateAPIView):
+    """GET  /api/auth/admin/packs/   (?is_actif=true|false)
+    POST /api/auth/admin/packs/
+    """
+    serializer_class = PackSerializer
+    permission_classes = [IsAdminRole]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = Pack.objects.all()
+        is_actif = self.request.query_params.get('is_actif')
+        if is_actif == 'true':
+            qs = qs.filter(is_actif=True)
+        elif is_actif == 'false':
+            qs = qs.filter(is_actif=False)
+        return qs
+
+
+class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PATCH/DELETE /api/auth/admin/packs/<id>/
+    Un pack déjà attribué ne peut pas être supprimé : il faut l'archiver (is_actif=false).
+    """
+    serializer_class = PackSerializer
+    permission_classes = [IsAdminRole]
+    queryset = Pack.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        pack = self.get_object()
+        if pack.abonnements.exists():
+            return Response(
+                {'detail': "Ce pack est attribué à des organisateurs : archivez-le plutôt que de le supprimer."},
+                status=status.HTTP_400_BAD_REQUEST)
+        pack.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminUserAbonnementView(APIView):
+    """POST   /api/auth/admin/users/<id>/abonnement/  { "pack_id": 2 }
+    Attribue (ou change) le pack d'un organisateur. La période repart d'aujourd'hui.
+    DELETE /api/auth/admin/users/<id>/abonnement/
+    Retire l'abonnement : l'organisateur retombe sur le pack gratuit par défaut.
+    """
+    permission_classes = [IsAdminRole]
+
+    def _get_user(self, pk):
+        try:
+            return User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return None
+
+    def post(self, request, pk):
+        user = self._get_user(pk)
+        if not user:
+            return Response({'detail': 'Utilisateur introuvable'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if not user.is_organisateur:
+            return Response(
+                {'detail': "Seul un organisateur peut recevoir un pack."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            pack = Pack.objects.get(pk=request.data.get('pack_id'), is_actif=True)
+        except (Pack.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'Pack introuvable ou archivé'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        maintenant = timezone.now()
+        date_fin = None if pack.is_gratuit else maintenant + timedelta(days=pack.nb_jours)
+        Abonnement.objects.update_or_create(
+            organisateur=user,
+            defaults={
+                'pack': pack,
+                'date_debut': maintenant,
+                'date_fin': date_fin,
+                'statut': 'actif',
+                'attribue_par': request.user,
+            },
+        )
+
+        notifier(
+            user,
+            f"Votre pack organisateur est désormais « {pack.nom} ».",
+            lien="/dashboard",
+        )
+        user.refresh_from_db()
+        return Response(AdminUserListSerializer(user).data)
+
+    def delete(self, request, pk):
+        user = self._get_user(pk)
+        if not user:
+            return Response({'detail': 'Utilisateur introuvable'},
+                            status=status.HTTP_404_NOT_FOUND)
+        Abonnement.objects.filter(organisateur=user).delete()
+        user.refresh_from_db()
+        return Response(AdminUserListSerializer(user).data)
+
+
+class PackListView(generics.ListAPIView):
+    """GET /api/auth/packs/ — catalogue public des packs actifs (page tarifs)."""
+    serializer_class = PackSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+    queryset = Pack.objects.filter(is_actif=True)
+
+
+class MonAbonnementView(APIView):
+    """GET /api/auth/me/abonnement/
+    Pack effectif de l'organisateur connecté et utilisation de son quota d'événements.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(serialiser_quota(request.user))

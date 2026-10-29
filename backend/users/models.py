@@ -251,3 +251,134 @@ def historiser_demande(user, evenement, motif='', nom_organisation=''):
         user=user, evenement=evenement, motif=motif or '',
         nom_organisation=nom_organisation or '',
     )
+
+# PACKS ET ABONNEMENTS ORGANISATEURS
+
+class Pack(models.Model):
+    """Offre d'abonnement proposée aux organisateurs (catalogue géré par l'admin)."""
+
+    DUREE_CHOICES = (
+        ('mensuel', 'Mensuel'),
+        ('annuel', 'Annuel'),
+    )
+
+    nom = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    prix = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Prix en DT")
+    duree = models.CharField(max_length=10, choices=DUREE_CHOICES, default='mensuel')
+    limite_evenements = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Nombre max d'événements actifs (en attente ou publiés, à venir). Vide = illimité",
+    )
+    commission_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text="Pourcentage prélevé sur les ventes de billets",
+    )
+    avantages = models.TextField(blank=True, help_text="Un avantage par ligne")
+    is_actif = models.BooleanField(default=True, help_text="False = pack archivé (plus assignable)")
+    ordre = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['ordre', 'prix']
+
+    def __str__(self):
+        return f"{self.nom} ({self.prix} DT / {self.get_duree_display().lower()})"
+
+    @property
+    def is_gratuit(self):
+        return self.prix == 0
+
+    @property
+    def nb_jours(self):
+        return 365 if self.duree == 'annuel' else 30
+
+
+class Abonnement(models.Model):
+    """Pack actuellement attribué à un organisateur."""
+
+    STATUT_CHOICES = (
+        ('actif', 'Actif'),
+        ('expire', 'Expiré'),
+    )
+
+    organisateur = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='abonnement',
+    )
+    pack = models.ForeignKey(
+        Pack, on_delete=models.PROTECT, related_name='abonnements',
+    )
+    date_debut = models.DateTimeField()
+    # Vide = sans échéance (pack gratuit)
+    date_fin = models.DateTimeField(null=True, blank=True)
+    statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='actif')
+    attribue_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='abonnements_attribues',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_debut']
+
+    def __str__(self):
+        return f"{self.organisateur.email} — {self.pack.nom} ({self.statut})"
+
+    @property
+    def est_actif(self):
+        from django.utils import timezone
+        if self.statut != 'actif':
+            return False
+        return self.date_fin is None or self.date_fin >= timezone.now()
+
+
+def pack_par_defaut():
+    """Pack appliqué à un organisateur sans abonnement actif : le premier pack gratuit actif."""
+    return Pack.objects.filter(is_actif=True, prix=0).order_by('ordre').first()
+
+
+def pack_effectif(user):
+    """Pack qui s'applique réellement à l'organisateur (abonnement actif, sinon pack gratuit)."""
+    abonnement = getattr(user, 'abonnement', None)
+    if abonnement and abonnement.est_actif:
+        return abonnement.pack
+    return pack_par_defaut()
+
+
+def quota_evenements(user):
+    """Utilisation du quota d'événements actifs de l'organisateur.
+    Un événement est « actif » s'il est en attente ou publié, et pas encore passé.
+    Les brouillons ne comptent pas. limite/restants = None si illimité."""
+    from django.db.models import Q
+    from django.utils import timezone
+    from events.models import Event
+
+    pack = pack_effectif(user)
+    utilises = Event.objects.filter(
+        organisateur=user, statut__in=['en_attente', 'publie'],
+    ).filter(
+        Q(date_evenement__gte=timezone.now()) | Q(date_evenement__isnull=True)
+    ).count()
+
+    limite = pack.limite_evenements if pack else None
+    if user.role == 'admin':
+        limite = None
+
+    return {
+        'pack': pack,
+        'limite': limite,
+        'utilises': utilises,
+        'restants': None if limite is None else max(limite - utilises, 0),
+    }
+
+
+def verifier_quota_evenements(user):
+    """Renvoie un message d'erreur si l'organisateur a atteint sa limite, sinon None."""
+    quota = quota_evenements(user)
+    if quota['limite'] is not None and quota['utilises'] >= quota['limite']:
+        nom_pack = quota['pack'].nom if quota['pack'] else ''
+        return (
+            f"Limite atteinte : votre pack {nom_pack} autorise {quota['limite']} "
+            f"événement(s) actif(s). Passez à un pack supérieur pour en soumettre davantage."
+        )
+    return None

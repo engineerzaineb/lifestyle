@@ -24,7 +24,11 @@ from .views_admin import (
     AdminUserToggleActiveView,
     AdminUserToggleOrganisateurView,
     AdminStatsView,
-    
+    AdminPackListCreateView,
+    AdminPackDetailView,
+    AdminUserAbonnementView,
+    PackListView,
+    MonAbonnementView,
 )
 from .views import (
     PasswordResetRequestView,
@@ -49,9 +53,13 @@ urlpatterns = [
     path('me/location/', UpdateLocationView.as_view(), name='update_location'),
     path('me/locations/', MyLocationsView.as_view(), name='my_locations'),
     path('me/interets/', UpdateUserInteretsView.as_view(), name='update_interets'),
+    path('me/abonnement/', MonAbonnementView.as_view(), name='mon_abonnement'),
 
     #  Centres d'intérêt (catalogue public) 
     path('interets/', InteretListView.as_view(), name='interets_list'),
+
+    # Packs organisateurs (catalogue public)
+    path('packs/', PackListView.as_view(), name='packs_list'),
 
     #  Demande organisateur (côté user) 
     path('demande-organisateur/', DemandeOrganisateurView.as_view(), name='demande-organisateur'),
@@ -67,6 +75,10 @@ urlpatterns = [
     path('admin/users/<int:pk>/toggle-active/', AdminUserToggleActiveView.as_view(), name='admin-user-toggle-active'),
     path('admin/users/<int:pk>/toggle-organisateur/', AdminUserToggleOrganisateurView.as_view(), name='admin-user-toggle-organisateur'),
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
+    # Administration : packs et abonnements
+    path('admin/packs/', AdminPackListCreateView.as_view(), name='admin-packs-list'),
+    path('admin/packs/<int:pk>/', AdminPackDetailView.as_view(), name='admin-pack-detail'),
+    path('admin/users/<int:pk>/abonnement/', AdminUserAbonnementView.as_view(), name='admin-user-abonnement'),
     
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),

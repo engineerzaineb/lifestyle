@@ -14,6 +14,8 @@ from .serializers import (
     ReservationReadSerializer, ReservationCreateSerializer,
 )
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
+from users.models import verifier_quota_evenements
 
 
 # Mapping des mois français vers leur numéro
@@ -450,6 +452,12 @@ class EventViewSet(viewsets.ModelViewSet):
         if not is_organisateur:
             serializer.validated_data['is_draft'] = True
 
+        # Soumission directe (hors brouillon) : on vérifie la limite du pack
+        if not serializer.validated_data.get('is_draft', False):
+            erreur = verifier_quota_evenements(user)
+            if erreur:
+                raise PermissionDenied(erreur)
+
         serializer.save(organisateur=user, is_valide=False)
 
     # À chaque modification d'un event PUBLIÉ, on prévient les participants
@@ -463,6 +471,12 @@ class EventViewSet(viewsets.ModelViewSet):
             'ville': event.ville,
         }
         etait_publie = event.statut == 'publie'
+
+        # Un brouillon soumis via la modification consomme une place du pack
+        if event.statut == 'brouillon' and not serializer.validated_data.get('is_draft', False):
+            erreur = verifier_quota_evenements(self.request.user)
+            if erreur:
+                raise PermissionDenied(erreur)
 
         event = serializer.save()
 
@@ -1090,6 +1104,11 @@ class EventViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Limite d'événements actifs du pack de l'organisateur
+        erreur = verifier_quota_evenements(event.organisateur)
+        if erreur:
+            return Response({'detail': erreur}, status=status.HTTP_403_FORBIDDEN)
 
         event.statut = 'en_attente'
         event.save()

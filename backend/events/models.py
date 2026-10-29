@@ -159,6 +159,9 @@ class Event(models.Model):
     )
 
     image = models.ImageField(upload_to='events/', blank=True)
+    # Lien direct vers une image hébergée ailleurs (alternative à l'upload).
+    # L'organisateur peut coller une URL au lieu d'uploader un fichier.
+    image_url = models.URLField(blank=True, help_text="Lien externe vers l'image de couverture")
 
     # Public cible : un event peut viser plusieurs publics à la fois.
     # (ex. un atelier famille = enfants + jeunes + adultes)

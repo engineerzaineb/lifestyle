@@ -3,6 +3,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.password_validation import validate_password
 from .models import User, UserLocation, Interet
 from .models import DemandeOrganisateur
+from .models import Pack, Abonnement, quota_evenements
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
@@ -283,6 +284,7 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     nb_events = serializers.SerializerMethodField()
     nb_reservations = serializers.SerializerMethodField()
     demande_statut = serializers.SerializerMethodField()
+    abonnement = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -290,7 +292,7 @@ class AdminUserListSerializer(serializers.ModelSerializer):
             'id', 'email', 'nom', 'prenom', 'nom_complet',
             'telephone', 'ville', 'role', 'is_organisateur',
             'is_active', 'created_at',
-            'nb_events', 'nb_reservations', 'demande_statut',
+            'nb_events', 'nb_reservations', 'demande_statut', 'abonnement',
         ]
         read_only_fields = fields
 
@@ -306,6 +308,14 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     def get_demande_statut(self, obj):
         demande = getattr(obj, 'demande_organisateur', None)
         return demande.statut if demande else None
+
+    def get_abonnement(self, obj):
+        if not obj.is_organisateur:
+            return None
+        abonnement = getattr(obj, 'abonnement', None)
+        if not abonnement:
+            return None
+        return AbonnementSerializer(abonnement).data
 # MISE À JOUR DU PROFIL 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -411,3 +421,54 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password'])
         return user
+
+
+# PACKS ET ABONNEMENTS
+
+class PackSerializer(serializers.ModelSerializer):
+    nb_abonnes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pack
+        fields = [
+            'id', 'nom', 'description', 'prix', 'duree', 'limite_evenements',
+            'commission_pct', 'avantages', 'is_actif', 'ordre', 'is_gratuit',
+            'nb_abonnes', 'created_at',
+        ]
+        read_only_fields = ['id', 'is_gratuit', 'nb_abonnes', 'created_at']
+
+    def get_nb_abonnes(self, obj):
+        return obj.abonnements.filter(statut='actif').count()
+
+    def validate_commission_pct(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("La commission doit être comprise entre 0 et 100 %.")
+        return value
+
+    def validate_prix(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Le prix ne peut pas être négatif.")
+        return value
+
+
+class AbonnementSerializer(serializers.ModelSerializer):
+    pack = PackSerializer(read_only=True)
+    est_actif = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Abonnement
+        fields = ['id', 'pack', 'date_debut', 'date_fin', 'statut', 'est_actif']
+        read_only_fields = fields
+
+
+def serialiser_quota(user):
+    """Pack effectif + utilisation du quota, pour l'organisateur connecté ou l'admin."""
+    quota = quota_evenements(user)
+    abonnement = getattr(user, 'abonnement', None)
+    return {
+        'pack': PackSerializer(quota['pack']).data if quota['pack'] else None,
+        'abonnement': AbonnementSerializer(abonnement).data if abonnement else None,
+        'limite': quota['limite'],
+        'utilises': quota['utilises'],
+        'restants': quota['restants'],
+    }

@@ -85,11 +85,14 @@ class EventListSerializer(serializers.ModelSerializer):
         ]
 
     def get_image_url(self, obj):
+        # Priorité au fichier uploadé ; sinon on renvoie le lien externe collé.
         if obj.image:
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
+        if obj.image_url:
+            return obj.image_url
         return None
 
     def get_vues(self, obj):
@@ -154,7 +157,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
         model = Event
         fields = [
             'id', 'titre', 'description', 'date_evenement',
-            'lieu', 'ville', 'statut', 'image',
+            'lieu', 'ville', 'statut', 'image', 'image_url',
             'categorie', 'tags', 'types_billets',
             'capacite','places_restantes', 'prix', 'capacite_totale', 'prix_min',
             'organisateur', 'organisateur_nom', 'is_valide', 'motif_refus',
