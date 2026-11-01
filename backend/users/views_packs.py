@@ -44,11 +44,20 @@ class MonAbonnementView(APIView):
 
 class AdminPackListCreateView(generics.ListCreateAPIView):
     """GET  /api/auth/admin/packs/  -> tous les packs (actifs + archivés)
+         ?is_actif=true|false pour filtrer
     POST /api/auth/admin/packs/  -> créer un pack"""
     serializer_class = PackSerializer
     permission_classes = [IsAdminRole]
     pagination_class = None
-    queryset = Pack.objects.all()
+
+    def get_queryset(self):
+        qs = Pack.objects.all()
+        is_actif = self.request.query_params.get('is_actif')
+        if is_actif == 'true':
+            qs = qs.filter(is_actif=True)
+        elif is_actif == 'false':
+            qs = qs.filter(is_actif=False)
+        return qs
 
 
 class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):

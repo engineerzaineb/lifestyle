@@ -12,6 +12,12 @@ export async function fetchAdminPacks() {
   return data.results || data;
 }
 
+// Détail d'un pack (page de modification)
+export async function fetchAdminPack(id) {
+  const { data } = await api.get(`/auth/admin/packs/${id}/`);
+  return data;
+}
+
 // Crée un pack
 export async function createPack(payload) {
   const { data } = await api.post("/auth/admin/packs/", payload);

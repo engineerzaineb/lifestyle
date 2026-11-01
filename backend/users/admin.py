@@ -15,6 +15,9 @@ class UserAdmin(admin.ModelAdmin):
         ('Informations principales', {
             'fields': ('email', 'nom', 'prenom', 'telephone', 'ville', 'role')
         }),
+        ('Profil', {
+            'fields': ('date_naissance', 'genre')
+        }),
         ('Géolocalisation', {
             'fields': ('current_latitude', 'current_longitude', 'last_location_update')
         }),
@@ -55,7 +58,7 @@ class InteretAdmin(admin.ModelAdmin):
 # packs organisateurs
 @admin.register(Pack)
 class PackAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'prix', 'duree', 'limite_evenements', 'commission_pct', 'is_actif', 'ordre']
+    list_display = ['nom', 'prix', 'duree', 'limite_evenements', 'commission_pct', 'etiquette', 'is_actif', 'ordre']
     list_filter = ['is_actif', 'duree']
     search_fields = ['nom']
     ordering = ['ordre', 'prix']

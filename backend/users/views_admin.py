@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .models import User, DemandeOrganisateur, Interet, Pack, Abonnement
-from .serializers import AdminUserListSerializer, PackSerializer, serialiser_quota
+from .serializers import AdminUserListSerializer
 from events.models import notifier
 from .models import historiser_demande
 
@@ -178,45 +178,10 @@ class AdminStatsView(APIView):
 
 # PACKS ET ABONNEMENTS
 
-class AdminPackListCreateView(generics.ListCreateAPIView):
-    """GET  /api/auth/admin/packs/   (?is_actif=true|false)
-    POST /api/auth/admin/packs/
-    """
-    serializer_class = PackSerializer
-    permission_classes = [IsAdminRole]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = Pack.objects.all()
-        is_actif = self.request.query_params.get('is_actif')
-        if is_actif == 'true':
-            qs = qs.filter(is_actif=True)
-        elif is_actif == 'false':
-            qs = qs.filter(is_actif=False)
-        return qs
-
-
-class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET/PATCH/DELETE /api/auth/admin/packs/<id>/
-    Un pack déjà attribué ne peut pas être supprimé : il faut l'archiver (is_actif=false).
-    """
-    serializer_class = PackSerializer
-    permission_classes = [IsAdminRole]
-    queryset = Pack.objects.all()
-
-    def destroy(self, request, *args, **kwargs):
-        pack = self.get_object()
-        if pack.abonnements.exists():
-            return Response(
-                {'detail': "Ce pack est attribué à des organisateurs : archivez-le plutôt que de le supprimer."},
-                status=status.HTTP_400_BAD_REQUEST)
-        pack.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
 class AdminUserAbonnementView(APIView):
     """POST   /api/auth/admin/users/<id>/abonnement/  { "pack_id": 2 }
-    Attribue (ou change) le pack d'un organisateur. La période repart d'aujourd'hui.
+    Attribue (ou change) le pack d'un organisateur depuis la page Utilisateurs
+    et renvoie l'utilisateur mis à jour. La période repart d'aujourd'hui.
     DELETE /api/auth/admin/users/<id>/abonnement/
     Retire l'abonnement : l'organisateur retombe sur le pack gratuit par défaut.
     """
@@ -253,7 +218,7 @@ class AdminUserAbonnementView(APIView):
                 'date_debut': maintenant,
                 'date_fin': date_fin,
                 'statut': 'actif',
-                'attribue_par': request.user,
+                'assigne_par': request.user,
             },
         )
 
@@ -273,21 +238,3 @@ class AdminUserAbonnementView(APIView):
         Abonnement.objects.filter(organisateur=user).delete()
         user.refresh_from_db()
         return Response(AdminUserListSerializer(user).data)
-
-
-class PackListView(generics.ListAPIView):
-    """GET /api/auth/packs/ — catalogue public des packs actifs (page tarifs)."""
-    serializer_class = PackSerializer
-    permission_classes = [permissions.AllowAny]
-    pagination_class = None
-    queryset = Pack.objects.filter(is_actif=True)
-
-
-class MonAbonnementView(APIView):
-    """GET /api/auth/me/abonnement/
-    Pack effectif de l'organisateur connecté et utilisation de son quota d'événements.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        return Response(serialiser_quota(request.user))

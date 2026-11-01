@@ -24,11 +24,16 @@ from .views_admin import (
     AdminUserToggleActiveView,
     AdminUserToggleOrganisateurView,
     AdminStatsView,
+    AdminUserAbonnementView,
+)
+from .views_packs import (
+    PackListPublicView,
+    MonAbonnementView,
     AdminPackListCreateView,
     AdminPackDetailView,
-    AdminUserAbonnementView,
-    PackListView,
-    MonAbonnementView,
+    AdminAbonnementListView,
+    AdminAssignerPackView,
+    AdminRetirerPackView,
 )
 from .views import (
     PasswordResetRequestView,
@@ -53,13 +58,13 @@ urlpatterns = [
     path('me/location/', UpdateLocationView.as_view(), name='update_location'),
     path('me/locations/', MyLocationsView.as_view(), name='my_locations'),
     path('me/interets/', UpdateUserInteretsView.as_view(), name='update_interets'),
-    path('me/abonnement/', MonAbonnementView.as_view(), name='mon_abonnement'),
 
     #  Centres d'intérêt (catalogue public) 
     path('interets/', InteretListView.as_view(), name='interets_list'),
 
     # Packs organisateurs (catalogue public)
-    path('packs/', PackListView.as_view(), name='packs_list'),
+    path('packs/', PackListPublicView.as_view(), name='packs_list'),
+    path('mon-abonnement/', MonAbonnementView.as_view(), name='mon_abonnement'),
 
     #  Demande organisateur (côté user) 
     path('demande-organisateur/', DemandeOrganisateurView.as_view(), name='demande-organisateur'),
@@ -78,7 +83,10 @@ urlpatterns = [
     # Administration : packs et abonnements
     path('admin/packs/', AdminPackListCreateView.as_view(), name='admin-packs-list'),
     path('admin/packs/<int:pk>/', AdminPackDetailView.as_view(), name='admin-pack-detail'),
+    path('admin/abonnements/', AdminAbonnementListView.as_view(), name='admin-abonnements-list'),
     path('admin/users/<int:pk>/abonnement/', AdminUserAbonnementView.as_view(), name='admin-user-abonnement'),
+    path('admin/users/<int:pk>/assigner-pack/', AdminAssignerPackView.as_view(), name='admin-user-assigner-pack'),
+    path('admin/users/<int:pk>/retirer-pack/', AdminRetirerPackView.as_view(), name='admin-user-retirer-pack'),
     
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),

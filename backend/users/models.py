@@ -38,6 +38,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     # NOUVEAU : flag organisateur
     is_organisateur = models.BooleanField(default=False)
 
+    # Profil démographique (statistiques des organisateurs)
+    GENRE_CHOICES = [
+        ('homme', 'Homme'),
+        ('femme', 'Femme'),
+        ('autre', 'Autre'),
+    ]
+    date_naissance = models.DateField(null=True, blank=True)
+    genre = models.CharField(max_length=10, choices=GENRE_CHOICES, blank=True)
+
     # Position actuelle (la plus récente) 
     current_latitude = models.DecimalField(max_digits=11, decimal_places=6, null=True, blank=True)
     current_longitude = models.DecimalField(max_digits=11, decimal_places=6, null=True, blank=True)
@@ -262,32 +271,83 @@ class Pack(models.Model):
         ('annuel', 'Annuel'),
     )
 
-    nom = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-    prix = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Prix en DT")
+    nom = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default='')
+    prix = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        help_text="Prix en DT (0 = pack gratuit)",
+    )
     duree = models.CharField(max_length=10, choices=DUREE_CHOICES, default='mensuel')
     limite_evenements = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Nombre max d'événements actifs (en attente ou publiés, à venir). Vide = illimité",
+        help_text="Nombre max d'événements. Laisser vide = illimité.",
     )
     commission_pct = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        help_text="Pourcentage prélevé sur les ventes de billets",
+        help_text="Taux de commission en % sur les ventes de billets.",
     )
-    avantages = models.TextField(blank=True, help_text="Un avantage par ligne")
-    is_actif = models.BooleanField(default=True, help_text="False = pack archivé (plus assignable)")
-    ordre = models.PositiveIntegerField(default=0)
+    avantages = models.TextField(
+        blank=True, default='',
+        help_text="Un avantage par ligne (mise en avant, stats avancées, support...).",
+    )
+    is_actif = models.BooleanField(
+        default=True, help_text="Un pack inactif n'est plus assignable (archivé).",
+    )
+    ordre = models.PositiveIntegerField(default=0, help_text="Ordre d'affichage (0 = en premier).")
+
+    # Options incluses
+    mise_en_avant = models.BooleanField(default=False, help_text="Événements mis en avant sur l'accueil")
+    stats_avancees = models.BooleanField(default=False, help_text="Accès aux statistiques détaillées")
+    support_prioritaire = models.BooleanField(default=False)
+    badge_verifie = models.BooleanField(default=False, help_text="Badge « Organisateur vérifié »")
+
+    # Limites supplémentaires (vide = illimité)
+    max_billets_par_event = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Capacité totale max d'un événement (tous types de billets). Vide = illimité.",
+    )
+    max_types_billets = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Nombre max de types de billets par événement. Vide = illimité.",
+    )
+    mises_en_avant_mois = models.PositiveIntegerField(
+        default=0, help_text="Nombre d'événements pouvant être mis en avant par mois.",
+    )
+
+    # Présentation commerciale
+    couleur = models.CharField(max_length=7, default='#4F46E5', help_text="Couleur du pack (#RRGGBB)")
+    etiquette = models.CharField(max_length=30, blank=True, help_text="Ex. « Populaire », « Meilleure offre »")
+    prix_barre = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text="Ancien prix affiché barré (réduction). Vide = pas de réduction.",
+    )
+    essai_jours = models.PositiveIntegerField(default=0, help_text="Période d'essai gratuite (0 = aucune)")
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['ordre', 'prix']
+        verbose_name = "Pack d'abonnement"
+        verbose_name_plural = "Packs d'abonnement"
 
     def __str__(self):
         return f"{self.nom} ({self.prix} DT / {self.get_duree_display().lower()})"
 
     @property
-    def is_gratuit(self):
+    def est_gratuit(self):
         return self.prix == 0
+
+    # Alias utilisé par le code des vues admin
+    is_gratuit = est_gratuit
+
+    @property
+    def est_illimite(self):
+        return self.limite_evenements is None
+
+    @property
+    def avantages_liste(self):
+        return [a.strip() for a in (self.avantages or '').splitlines() if a.strip()]
 
     @property
     def nb_jours(self):
@@ -308,28 +368,41 @@ class Abonnement(models.Model):
     pack = models.ForeignKey(
         Pack, on_delete=models.PROTECT, related_name='abonnements',
     )
-    date_debut = models.DateTimeField()
+    date_debut = models.DateTimeField(auto_now_add=True)
     # Vide = sans échéance (pack gratuit)
     date_fin = models.DateTimeField(null=True, blank=True)
     statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='actif')
-    attribue_par = models.ForeignKey(
+    assigne_par = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='abonnements_attribues',
+        related_name='abonnements_assignes',
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-date_debut']
+        ordering = ['-created_at']
+        verbose_name = 'Abonnement'
+        verbose_name_plural = 'Abonnements'
 
     def __str__(self):
         return f"{self.organisateur.email} — {self.pack.nom} ({self.statut})"
 
     @property
-    def est_actif(self):
+    def est_expire(self):
         from django.utils import timezone
-        if self.statut != 'actif':
-            return False
-        return self.date_fin is None or self.date_fin >= timezone.now()
+        return self.date_fin is not None and self.date_fin < timezone.now()
+
+    @property
+    def est_actif(self):
+        return self.statut == 'actif' and not self.est_expire
+
+    def events_utilises(self):
+        return compter_evenements_actifs(self.organisateur)
+
+    def events_restants(self):
+        if self.pack.limite_evenements is None:
+            return None
+        return max(self.pack.limite_evenements - self.events_utilises(), 0)
 
 
 def pack_par_defaut():
@@ -345,20 +418,24 @@ def pack_effectif(user):
     return pack_par_defaut()
 
 
-def quota_evenements(user):
-    """Utilisation du quota d'événements actifs de l'organisateur.
-    Un événement est « actif » s'il est en attente ou publié, et pas encore passé.
-    Les brouillons ne comptent pas. limite/restants = None si illimité."""
+def compter_evenements_actifs(user):
+    """Événements en attente ou publiés, pas encore passés. Les brouillons ne comptent pas."""
     from django.db.models import Q
     from django.utils import timezone
     from events.models import Event
 
-    pack = pack_effectif(user)
-    utilises = Event.objects.filter(
+    return Event.objects.filter(
         organisateur=user, statut__in=['en_attente', 'publie'],
     ).filter(
         Q(date_evenement__gte=timezone.now()) | Q(date_evenement__isnull=True)
     ).count()
+
+
+def quota_evenements(user):
+    """Utilisation du quota d'événements actifs de l'organisateur.
+    limite/restants = None si illimité."""
+    pack = pack_effectif(user)
+    utilises = compter_evenements_actifs(user)
 
     limite = pack.limite_evenements if pack else None
     if user.role == 'admin':
@@ -380,5 +457,33 @@ def verifier_quota_evenements(user):
         return (
             f"Limite atteinte : votre pack {nom_pack} autorise {quota['limite']} "
             f"événement(s) actif(s). Passez à un pack supérieur pour en soumettre davantage."
+        )
+    return None
+
+
+def verifier_limites_billets(user, billets):
+    """Vérifie les limites de billetterie du pack pour une liste de types de billets.
+    billets : liste de dicts (ou objets) ayant une « capacite ».
+    Renvoie un message d'erreur, sinon None."""
+    if user.role == 'admin':
+        return None
+    pack = pack_effectif(user)
+    if not pack:
+        return None
+
+    capacites = [
+        int((b.get('capacite') if isinstance(b, dict) else b.capacite) or 0)
+        for b in billets
+    ]
+
+    if pack.max_types_billets is not None and len(capacites) > pack.max_types_billets:
+        return (
+            f"Votre pack {pack.nom} autorise {pack.max_types_billets} type(s) de billets "
+            f"par événement (vous en avez {len(capacites)})."
+        )
+    if pack.max_billets_par_event is not None and sum(capacites) > pack.max_billets_par_event:
+        return (
+            f"Votre pack {pack.nom} autorise {pack.max_billets_par_event} billets par événement "
+            f"(capacité demandée : {sum(capacites)})."
         )
     return None

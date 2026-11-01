@@ -114,8 +114,11 @@
 /* Contenu */
 .content {
   flex: 1;
+  min-width: 0;
   padding: 32px 36px;
-  overflow-y: auto;
+  /* clip (et non auto) : la page défile, pas ce bloc, ce qui permet
+     aux éléments « sticky » (ex. aperçu d'un pack) de fonctionner */
+  overflow-x: clip;
 }
 /* ===== PIED DE SIDEBAR ===== */
 

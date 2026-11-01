@@ -15,7 +15,7 @@ from .serializers import (
 )
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-from users.models import verifier_quota_evenements
+from users.models import verifier_quota_evenements, verifier_limites_billets
 
 
 # Mapping des mois français vers leur numéro
@@ -452,9 +452,13 @@ class EventViewSet(viewsets.ModelViewSet):
         if not is_organisateur:
             serializer.validated_data['is_draft'] = True
 
-        # Soumission directe (hors brouillon) : on vérifie la limite du pack
+        # Soumission directe (hors brouillon) : on vérifie les limites du pack
         if not serializer.validated_data.get('is_draft', False):
-            erreur = verifier_quota_evenements(user)
+            erreur = (
+                verifier_quota_evenements(user)
+                or verifier_limites_billets(
+                    user, serializer.validated_data.get('types_billets_data') or [])
+            )
             if erreur:
                 raise PermissionDenied(erreur)
 
@@ -472,9 +476,21 @@ class EventViewSet(viewsets.ModelViewSet):
         }
         etait_publie = event.statut == 'publie'
 
+        user = self.request.user
+        soumis = not serializer.validated_data.get('is_draft', False)
+
         # Un brouillon soumis via la modification consomme une place du pack
-        if event.statut == 'brouillon' and not serializer.validated_data.get('is_draft', False):
-            erreur = verifier_quota_evenements(self.request.user)
+        if event.statut == 'brouillon' and soumis:
+            erreur = verifier_quota_evenements(user)
+            if erreur:
+                raise PermissionDenied(erreur)
+
+        # Limites de billetterie du pack (hors brouillon)
+        if soumis:
+            billets = serializer.validated_data.get('types_billets_data')
+            if billets is None:
+                billets = list(event.types_billets.all())
+            erreur = verifier_limites_billets(event.organisateur, billets)
             if erreur:
                 raise PermissionDenied(erreur)
 
@@ -963,6 +979,216 @@ class EventViewSet(viewsets.ModelViewSet):
             },
         })
 
+    # GET /api/events/dashboard-detaille/?periode=7|30|365
+    # Courbe vues/inscriptions, taux de conversion, performance par événement
+    # et dernières réservations, pour le tableau de bord organisateur.
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='dashboard-detaille',
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def dashboard_detaille(self, request):
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDate, TruncMonth
+        from events.models import ReservationItem
+
+        user = request.user
+        if not (user.is_organisateur or user.role == 'admin'):
+            return Response(
+                {'detail': "Réservé aux organisateurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            periode = int(request.query_params.get('periode', 30))
+        except ValueError:
+            periode = 30
+        if periode not in (7, 30, 365):
+            periode = 30
+
+        now = timezone.now()
+        debut = now - timedelta(days=periode)
+        mes_events = Event.objects.filter(organisateur=user)
+
+        # Sur un an on regroupe par mois, sinon par jour
+        par_mois = periode == 365
+        trunc_vue = TruncMonth('viewed_at') if par_mois else TruncDate('viewed_at')
+        trunc_resa = (
+            TruncMonth('reservation__date_reservation') if par_mois
+            else TruncDate('reservation__date_reservation')
+        )
+
+        vues_par_date = dict(
+            EventView.objects.filter(event__in=mes_events, viewed_at__gte=debut)
+            .annotate(jour=trunc_vue).values('jour')
+            .annotate(n=Count('id')).values_list('jour', 'n')
+        )
+        inscr_par_date = dict(
+            ReservationItem.objects.filter(
+                reservation__event__in=mes_events,
+                reservation__statut='confirmee',
+                reservation__date_reservation__gte=debut,
+            )
+            .annotate(jour=trunc_resa).values('jour')
+            .annotate(n=Sum('quantite')).values_list('jour', 'n')
+        )
+
+        def cle(d):
+            # TruncMonth renvoie un datetime, TruncDate une date
+            d = d.date() if hasattr(d, 'date') and callable(d.date) else d
+            return d.replace(day=1) if par_mois else d
+
+        vues_par_date = {cle(k): v for k, v in vues_par_date.items()}
+        inscr_par_date = {cle(k): v for k, v in inscr_par_date.items()}
+
+        # Série continue (les jours/mois sans activité valent 0)
+        serie = []
+        if par_mois:
+            mois = now.date().replace(day=1)
+            dates = []
+            for _ in range(12):
+                dates.append(mois)
+                mois = (mois - timedelta(days=1)).replace(day=1)
+            dates.reverse()
+        else:
+            aujourd_hui = timezone.localdate()
+            dates = [aujourd_hui - timedelta(days=i) for i in range(periode - 1, -1, -1)]
+        for d in dates:
+            serie.append({
+                'date': d.isoformat(),
+                'vues': vues_par_date.get(d, 0),
+                'inscriptions': inscr_par_date.get(d, 0),
+            })
+
+        total_vues = sum(p['vues'] for p in serie)
+        total_inscr = sum(p['inscriptions'] for p in serie)
+        conversion = round(total_inscr / total_vues * 100, 1) if total_vues else 0
+
+        # Performance par événement (hors brouillons)
+        stats_events = []
+        for ev in mes_events.exclude(statut='brouillon').order_by('-date_evenement'):
+            vues = ev.vues_count
+            inscrits = ev.inscriptions_count
+            capacite = ev.capacite or 0
+            stats_events.append({
+                'id': ev.id,
+                'titre': ev.titre,
+                'statut': ev.statut,
+                'vues': vues,
+                'inscriptions': inscrits,
+                'capacite': capacite,
+                'revenue': float(ev.revenue_total),
+                'remplissage': round(inscrits / capacite * 100) if capacite else 0,
+                'conversion': round(inscrits / vues * 100, 1) if vues else 0,
+            })
+
+        # Dernières réservations confirmées
+        reservations_recentes = [
+            {
+                'id': r.id,
+                'prenom': r.user.prenom,
+                'nom': r.user.nom,
+                'places': r.places or 0,
+                'event_titre': r.event.titre,
+                'total': float(r.total_prix),
+                'date': r.date_reservation,
+            }
+            for r in Reservation.objects.filter(event__in=mes_events, statut='confirmee')
+            .select_related('user', 'event')
+            .annotate(places=Sum('items__quantite'))
+            .order_by('-date_reservation')[:5]
+        ]
+
+        return Response({
+            'periode': periode,
+            'conversion': conversion,
+            'serie': serie,
+            'stats_events': stats_events,
+            'reservations_recentes': reservations_recentes,
+        })
+
+    # GET /api/events/demographie/
+    # Profil (ville / âge / genre) des personnes qui réservent et de celles
+    # qui consultent les événements de l'organisateur.
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='demographie',
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def demographie(self, request):
+        from datetime import date
+        from users.models import User
+
+        user = request.user
+        if not (user.is_organisateur or user.role == 'admin'):
+            return Response(
+                {'detail': "Réservé aux organisateurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        mes_events = Event.objects.filter(organisateur=user)
+        reservateurs = User.objects.filter(
+            reservations__event__in=mes_events,
+            reservations__statut='confirmee',
+        ).distinct()
+        visiteurs = User.objects.filter(event_views__event__in=mes_events).distinct()
+
+        TRANCHES = [
+            ('Moins de 18 ans', 0, 17),
+            ('18-24 ans', 18, 24),
+            ('25-34 ans', 25, 34),
+            ('35-44 ans', 35, 44),
+            ('45-54 ans', 45, 54),
+            ('55 ans et +', 55, 200),
+        ]
+        GENRES = dict(User.GENRE_CHOICES)
+        today = date.today()
+
+        def compter(valeurs, ordre=None, top=None):
+            """[{label, value}] trié par valeur (ou selon `ordre`), zéros exclus."""
+            compte = {}
+            for v in valeurs:
+                compte[v] = compte.get(v, 0) + 1
+            if ordre:
+                items = [(k, compte[k]) for k in ordre if compte.get(k)]
+            else:
+                items = sorted(compte.items(), key=lambda kv: -kv[1])
+            if top and len(items) > top:
+                autres = sum(v for _, v in items[top:])
+                items = items[:top] + [('Autres', autres)]
+            return [{'label': k, 'value': v} for k, v in items]
+
+        def tranche(naissance):
+            if not naissance:
+                return 'Non renseigné'
+            age = today.year - naissance.year - (
+                (today.month, today.day) < (naissance.month, naissance.day))
+            for label, mini, maxi in TRANCHES:
+                if mini <= age <= maxi:
+                    return label
+            return 'Non renseigné'
+
+        def profil(qs):
+            lignes = list(qs.values('ville', 'date_naissance', 'genre'))
+            return {
+                'total': len(lignes),
+                'villes': compter(
+                    [(l['ville'] or '').strip() or 'Non renseignée' for l in lignes], top=5),
+                'ages': compter(
+                    [tranche(l['date_naissance']) for l in lignes],
+                    ordre=[t[0] for t in TRANCHES] + ['Non renseigné']),
+                'genres': compter(
+                    [GENRES.get(l['genre'], 'Non renseigné') for l in lignes],
+                    ordre=list(GENRES.values()) + ['Non renseigné']),
+            }
+
+        return Response({
+            'reservateurs': profil(reservateurs),
+            'visiteurs': profil(visiteurs),
+        })
+
     # POST /api/events/{id}/duplicate/
     # Crée une copie d'un événement (en brouillon, date remise à blanc)
     # Réservé au propriétaire ou à un admin (via has_object_permission).
@@ -1105,8 +1331,11 @@ class EventViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Limite d'événements actifs du pack de l'organisateur
-        erreur = verifier_quota_evenements(event.organisateur)
+        # Limites du pack de l'organisateur (événements actifs + billetterie)
+        erreur = (
+            verifier_quota_evenements(event.organisateur)
+            or verifier_limites_billets(event.organisateur, list(event.types_billets.all()))
+        )
         if erreur:
             return Response({'detail': erreur}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1411,3 +1640,4 @@ class NotificationViewSet(viewsets.ViewSet):
     def tout_lu(self, request):
         Notification.objects.filter(user=request.user, lue=False).update(lue=True)
         return Response({'detail': 'Toutes les notifications sont lues.'})
+    

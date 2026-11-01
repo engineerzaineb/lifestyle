@@ -50,6 +50,7 @@ import AdminEvents from "./pages/Admin/AdminEvents";
 import AdminUsers from "./pages/Admin/AdminUsers";
 import AdminCategories from "./pages/Admin/AdminCategories";
 import AdminPacks from "./pages/Admin/AdminPacks";
+import AdminPackForm from "./pages/Admin/AdminPackForm";
 
 import "./App.css";
 
@@ -153,6 +154,8 @@ function AppContent() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="packs" element={<AdminPacks />} />
+            <Route path="packs/nouveau" element={<AdminPackForm />} />
+            <Route path="packs/:id/modifier" element={<AdminPackForm />} />
           </Route>
 
           {/* LEGAL & ENTREPRISE */}
