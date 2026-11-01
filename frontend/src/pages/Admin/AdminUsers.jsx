@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Search, Users, ShieldCheck, Star, Ban, CheckCircle,
-  Mail, MapPin, Calendar, Ticket, X, UserCog, Filter,
+  Mail, MapPin, Calendar, Ticket, X, UserCog, Filter, Package,
 } from "lucide-react";
 import {
   fetchUsers, toggleUserActive, toggleUserOrganisateur,
+  fetchPacks, assignerPack, retirerPack,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { useAuth } from "../../context/useAuth";
@@ -28,6 +29,8 @@ export default function AdminUsers() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [selected, setSelected] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [packs, setPacks] = useState([]);
+  const [packChoisi, setPackChoisi] = useState("");
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -51,6 +54,19 @@ useEffect(() => {
 
     return () => { cancelled = true; };
   }, [debouncedQuery, activeFilter]);
+
+  // Packs actifs, pour l'attribution aux organisateurs
+  useEffect(() => {
+    fetchPacks("true")
+      .then(setPacks)
+      .catch((err) => console.error("Erreur chargement packs:", err));
+  }, []);
+
+  // Ouvre la modale en pré-sélectionnant le pack actuel
+  const openUser = (u) => {
+    setPackChoisi(u.abonnement?.pack?.id ? String(u.abonnement.pack.id) : "");
+    setSelected(u);
+  };
 
   // Remplace un utilisateur dans la liste après une action
   const replaceUser = (updated) => {
@@ -94,6 +110,24 @@ useEffect(() => {
       );
     } catch (err) {
       console.error("Erreur toggle organisateur:", err);
+      toast.error(err.response?.data?.detail || "Action impossible");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleAssignerPack = async (u) => {
+    setProcessing(true);
+    try {
+      const updated = packChoisi
+        ? await assignerPack(u.id, Number(packChoisi))
+        : await retirerPack(u.id);
+      replaceUser(updated);
+      toast.success(
+        packChoisi ? "Pack attribué" : "Abonnement retiré (pack gratuit par défaut)"
+      );
+    } catch (err) {
+      console.error("Erreur attribution pack:", err);
       toast.error(err.response?.data?.detail || "Action impossible");
     } finally {
       setProcessing(false);
@@ -211,6 +245,11 @@ useEffect(() => {
                       <Star size={10} /> Organisateur
                     </span>
                   )}
+                  {u.abonnement && (
+                    <span className={`${styles.badge} ${styles.badgePack}`}>
+                      <Package size={10} /> {u.abonnement.pack.nom}
+                    </span>
+                  )}
                   {!u.is_active && (
                     <span className={`${styles.badge} ${styles.badgeInactive}`}>
                       <Ban size={10} /> Désactivé
@@ -241,7 +280,7 @@ useEffect(() => {
               </div>
 
               <button
-                onClick={() => setSelected(u)}
+                onClick={() => openUser(u)}
                 className={styles.btnDetail}
               >
                 <UserCog size={14} />
@@ -311,6 +350,47 @@ useEffect(() => {
                   </span>
                 </div>
               </div>
+
+              {selected.is_organisateur && selected.role !== "admin" && (
+                <div className={styles.packBox}>
+                  <p className={styles.packTitle}>
+                    <Package size={14} /> Pack organisateur
+                  </p>
+                  <p className={styles.packInfo}>
+                    {selected.abonnement
+                      ? `${selected.abonnement.pack.nom}${
+                          selected.abonnement.date_fin
+                            ? ` — jusqu'au ${formatDate(selected.abonnement.date_fin)}`
+                            : ""
+                        }${selected.abonnement.est_actif ? "" : " (expiré)"}`
+                      : "Aucun abonnement : pack gratuit par défaut"}
+                  </p>
+                  <div className={styles.packRow}>
+                    <select
+                      value={packChoisi}
+                      onChange={(e) => setPackChoisi(e.target.value)}
+                      className={styles.packSelect}
+                      disabled={processing}
+                    >
+                      <option value="">Aucun (pack gratuit par défaut)</option>
+                      {packs.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nom} — {Number(p.prix) === 0 ? "Gratuit" : `${Number(p.prix)} DT`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleAssignerPack(selected)}
+                      disabled={processing}
+                      className={styles.btnPack}
+                    >
+                      {selected.abonnement && packChoisi === String(selected.abonnement.pack.id)
+                        ? "Renouveler"
+                        : "Appliquer"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {selected.role === "admin" ? (
                 <p className={styles.warnBox}>

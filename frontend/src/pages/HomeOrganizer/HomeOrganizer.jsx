@@ -1,21 +1,37 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Plus, ArrowRight, FileText, Sparkles, BarChart3
+  Plus, ArrowRight, FileText, Sparkles, BarChart3, TrendingUp
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
-import { fetchEvents } from "../../services/eventService";
+import {
+  fetchEvents, fetchOrganizerStats, fetchOrganizerDashboard,
+  fetchOrganizerDemographics,
+} from "../../services/eventService";
 import { getInitials, formatPrice, timeAgo } from "../../utils/formatters";
 import DashboardStats from "../../components/DashboardStats/DashboardStats";
+import DashboardChart from "../../components/DashboardChart/DashboardChart";
+import EventStatsTable from "../../components/EventStatsTable/EventStatsTable";
+import DemographicsPanel from "../../components/DemographicsPanel/DemographicsPanel";
 import EventsGrid from "../../components/EventsGrid/EventsGrid";
 import styles from "./HomeOrganizer.module.css";
 
+// Options du filtre de période
+const PERIODES = [
+  { value: 7, label: "7 jours" },
+  { value: 30, label: "30 jours" },
+  { value: 365, label: "Cette année" },
+];
 
 export default function HomeOrganizer() {
   const { user } = useAuth();
   const [publishedEvents, setPublishedEvents] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
+  const [demographics, setDemographics] = useState(null);
+  const [periode, setPeriode] = useState(30);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,13 +41,24 @@ export default function HomeOrganizer() {
     async function loadData(silencieux = false) {
       if (!silencieux) setLoading(true);
       try {
-        const data = await fetchEvents({ mes_events: true });
+        // On charge en parallèle : events + stats cartes + dashboard + démographie.
+        const [data, statsData, dashData, demoData] = await Promise.all([
+          fetchEvents({ mes_events: true }),
+          fetchOrganizerStats().catch(() => null),
+          fetchOrganizerDashboard(periode).catch(() => null),
+          fetchOrganizerDemographics().catch(() => null),
+        ]);
         if (cancelled) return;
 
         const allEvents = data.results || [];
         setPublishedEvents(allEvents.filter((e) => e.statut === "publie").slice(0, 3));
         setDrafts(allEvents.filter((e) => e.statut === "brouillon").slice(0, 2));
-        setRecentBookings([]);
+        if (statsData) setStats(statsData);
+        if (dashData) {
+          setDashboard(dashData);
+          setRecentBookings(dashData.reservations_recentes || []);
+        }
+        if (demoData) setDemographics(demoData);
       } catch (err) {
         console.error("Erreur HomeOrganizer:", err);
       } finally {
@@ -46,7 +73,7 @@ export default function HomeOrganizer() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [periode]);
 
   const initials = getInitials(user?.prenom, user?.nom);
 
@@ -87,13 +114,46 @@ export default function HomeOrganizer() {
                 Vue d'ensemble de vos événements ce mois-ci
               </p>
             </div>
-            <Link to="/organizer" className={styles.sectionAction}>
-              <BarChart3 size={13} />
-              Détails complets
-            </Link>
+            <div className={styles.periodeFilter}>
+              {PERIODES.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  className={`${styles.periodeBtn} ${periode === p.value ? styles.periodeBtnActive : ""}`}
+                  onClick={() => setPeriode(p.value)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <DashboardStats />
+          <DashboardStats stats={stats} />
+
+          {/* Taux de conversion global (vues -> inscriptions) */}
+          {dashboard && (
+            <div className={styles.conversionBanner}>
+              <TrendingUp size={16} />
+              <span>
+                Taux de conversion : <strong>{dashboard.conversion}%</strong> des visiteurs réservent une place
+              </span>
+            </div>
+          )}
+
+          {/* Graphique d'évolution */}
+          <div className={styles.chartBlock}>
+            <DashboardChart serie={dashboard?.serie || []} />
+          </div>
+
+          {/* Tableau performance par événement */}
+          <div className={styles.tableBlock}>
+            <EventStatsTable rows={dashboard?.stats_events || []} />
+          </div>
+
+          {/* Profil démographique (ville / âge / genre) */}
+          <div className={styles.tableBlock}>
+            <DemographicsPanel data={demographics} />
+          </div>
         </div>
       </section>
 
@@ -258,7 +318,7 @@ function BookingsFeed({ bookings, loading }) {
             </p>
             <p className={styles.bookingDetails}>
               {booking.places} place{booking.places > 1 ? "s" : ""} ·{" "}
-              <strong>{booking.eventTitle}</strong>
+              <strong>{booking.event_titre}</strong>
             </p>
           </div>
           <div>

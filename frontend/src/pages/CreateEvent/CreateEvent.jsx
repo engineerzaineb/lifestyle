@@ -188,7 +188,7 @@ export default function CreateEvent() {
 
       setTimeout(() => navigate("/organizer"), 1000);
     } catch (err) {
-      toast.error("Erreur lors de la création de l'événement");
+      toast.error(err.response?.data?.detail || "Erreur lors de la création de l'événement");
       console.error(err);
     } finally {
       setIsLoading(false);

@@ -53,7 +53,7 @@ export default function EditEvent() {
 
     async function load() {
       try {
-        const data = await fetchEvent(id);
+        const data = await fetchEvent(id, true);
         if (cancelled) return;
         if (!data) {
           toast.error("Événement introuvable");

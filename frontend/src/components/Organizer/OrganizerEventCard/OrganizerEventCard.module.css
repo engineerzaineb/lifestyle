@@ -346,3 +346,19 @@
     gap: 12px;
   }
 }
+/* Encart motif de refus (affiché sur la carte d'un event refusé) */
+.refusBox {
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+.refusBox strong {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
+}

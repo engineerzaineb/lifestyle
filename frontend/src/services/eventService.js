@@ -10,10 +10,40 @@ export async function fetchEvents(filters = {}) {
   return data;
 }
 
-// Récupère un événement par ID
-export async function fetchEvent(id) {
+// Stats réelles du dashboard organisateur (vues, inscriptions, revenus,
+// taux de remplissage, avec variation période sur période).
+export async function fetchOrganizerStats() {
   if (USE_MOCK) return null;
-  const { data } = await api.get(`/events/${id}/`);
+  const { data } = await api.get("/events/stats-organisateur/");
+  return data;
+}
+
+// Dashboard détaillé de l'organisateur : série temporelle (graphique),
+// réservations récentes, stats par event, taux de conversion.
+// periode = 7, 30 ou 365 jours.
+export async function fetchOrganizerDashboard(periode = 30) {
+  if (USE_MOCK) return null;
+  const { data } = await api.get("/events/dashboard-detaille/", {
+    params: { periode },
+  });
+  return data;
+}
+
+// Profil démographique (ville / âge / genre) des utilisateurs qui réservent
+// et qui consultent les événements de l'organisateur.
+export async function fetchOrganizerDemographics() {
+  if (USE_MOCK) return null;
+  const { data } = await api.get("/events/demographie/");
+  return data;
+}
+
+// Récupère un événement par ID.
+// forEdit=true : charge aussi les events non publiés de l'organisateur
+// (pour l'édition). Sinon, seule la version publique (publié + validé) est servie.
+export async function fetchEvent(id, forEdit = false) {
+  if (USE_MOCK) return null;
+  const params = forEdit ? { edit: "true" } : {};
+  const { data } = await api.get(`/events/${id}/`, { params });
   return data;
 }
 

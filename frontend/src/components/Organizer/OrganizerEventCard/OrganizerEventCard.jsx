@@ -69,8 +69,16 @@ function GridVariant({ event, onAction }) {
           </div>
         </div>
 
+        {/* Motif de refus : visible uniquement pour un event refusé */}
+        {event.statut === "refuse" && event.motif_refus && (
+          <div className={styles.refusBox}>
+            <strong>Motif du refus :</strong> {event.motif_refus}
+          </div>
+        )}
+
         <div className={styles.footer}>
-          {actions.includes("view") && (
+          {/* Pas de bouton "Voir" (page publique) pour un event refusé */}
+          {actions.includes("view") && event.statut !== "refuse" && (
             <Link to={`/event/${event.id}`} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
               <Eye size={12} />
               Voir
@@ -137,6 +145,13 @@ function ListVariant({ event, onAction }) {
           </span>
         </div>
 
+        {/* Motif de refus : visible uniquement pour un event refusé */}
+        {event.statut === "refuse" && event.motif_refus && (
+          <div className={styles.refusBox}>
+            <strong>Motif du refus :</strong> {event.motif_refus}
+          </div>
+        )}
+
         <div className={styles.statsList}>
           <span>
             <Eye size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
@@ -156,7 +171,7 @@ function ListVariant({ event, onAction }) {
       </div>
 
       <div className={styles.actionsList}>
-        {actions.includes("view") && (
+        {actions.includes("view") && event.statut !== "refuse" && (
           <Link to={`/event/${event.id}`} className={styles.actionBtn}>
             <Eye size={12} />
             Voir

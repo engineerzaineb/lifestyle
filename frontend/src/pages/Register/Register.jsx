@@ -22,6 +22,8 @@ export default function Register() {
     email: "",
     telephone: "",
     ville: "",
+    date_naissance: "",
+    genre: "",
     password: "",
     passwordConfirm: "",
   });
@@ -79,6 +81,27 @@ export default function Register() {
       newErrors.passwordConfirm = "Les mots de passe ne correspondent pas";
     }
 
+    // Date de naissance obligatoire + âge minimum 13 ans
+    if (!formData.date_naissance) {
+      newErrors.date_naissance = "Date de naissance requise";
+    } else {
+      const naissance = new Date(formData.date_naissance);
+      const today = new Date();
+      let age = today.getFullYear() - naissance.getFullYear();
+      const m = today.getMonth() - naissance.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < naissance.getDate())) age--;
+      if (naissance > today) {
+        newErrors.date_naissance = "Date invalide";
+      } else if (age < 13) {
+        newErrors.date_naissance = "Vous devez avoir au moins 13 ans";
+      }
+    }
+
+    // Genre obligatoire
+    if (!formData.genre) {
+      newErrors.genre = "Genre requis";
+    }
+
     if (!cguAccepted) {
       newErrors.cgu = "Vous devez accepter les CGU";
     }
@@ -119,6 +142,8 @@ export default function Register() {
         prenom: formData.prenom.trim(),
         telephone: formData.telephone.trim(),
         ville: formData.ville,
+        date_naissance: formData.date_naissance,
+        genre: formData.genre,
         role: "utilisateur",
         password: formData.password,
       };
@@ -331,6 +356,46 @@ function Step1Form({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Date de naissance (obligatoire) */}
+        <div className={styles.field}>
+          <label className={styles.label}>
+            Date de naissance
+            <span className={styles.required}>*</span>
+          </label>
+          <div className={`${styles.inputWrapper} ${errors.date_naissance ? styles.error : ""}`}>
+            <input
+              type="date"
+              value={formData.date_naissance}
+              onChange={(e) => onFieldChange("date_naissance", e.target.value)}
+              className={styles.input}
+              max={new Date().toISOString().slice(0, 10)}
+            />
+          </div>
+          {errors.date_naissance && <p className={styles.errorMsg}>{errors.date_naissance}</p>}
+        </div>
+
+        {/* Genre (obligatoire) */}
+        <div className={styles.field}>
+          <label className={styles.label}>
+            Genre
+            <span className={styles.required}>*</span>
+          </label>
+          <div className={`${styles.inputWrapper} ${errors.genre ? styles.error : ""}`}>
+            <select
+              value={formData.genre}
+              onChange={(e) => onFieldChange("genre", e.target.value)}
+              className={styles.input}
+              style={{ cursor: "pointer" }}
+            >
+              <option value="">Sélectionner...</option>
+              <option value="homme">Homme</option>
+              <option value="femme">Femme</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          {errors.genre && <p className={styles.errorMsg}>{errors.genre}</p>}
         </div>
 
         {/* Mot de passe */}

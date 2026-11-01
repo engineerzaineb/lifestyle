@@ -3,14 +3,16 @@ import styles from "./DashboardStats.module.css";
 
 
 export default function DashboardStats({ stats }) {
-  const defaultStats = {
-    views: { value: 2847, delta: 12 },
-    inscriptions: { value: 142, total: 200, delta: 8 },
-    revenue: { value: 4970, delta: 24 },
-    fillRate: { value: 71, delta: 5 },
+  // Valeurs à zéro tant que les vraies stats ne sont pas chargées
+  // (évite d'afficher des chiffres factices).
+  const emptyStats = {
+    views: { value: 0, delta: 0 },
+    inscriptions: { value: 0, total: 0, delta: 0 },
+    revenue: { value: 0, delta: 0 },
+    fillRate: { value: 0, delta: 0 },
   };
 
-  const data = stats || defaultStats;
+  const data = stats || emptyStats;
 
   return (
     <div className={styles.grid}>

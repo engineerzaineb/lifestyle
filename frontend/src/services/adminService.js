@@ -129,3 +129,44 @@ export async function fetchAdminStats() {
   const { data } = await api.get("/auth/admin/stats/");
   return data;
 }
+
+//  PACKS ORGANISATEURS
+
+/**
+ * Liste les packs
+ * @param {string} isActif - "true" | "false" | null (tous)
+ */
+export async function fetchPacks(isActif = null) {
+  const params = isActif ? { is_actif: isActif } : {};
+  const { data } = await api.get("/auth/admin/packs/", { params });
+  return data.results || data;
+}
+
+// Crée un pack
+export async function createPack(payload) {
+  const { data } = await api.post("/auth/admin/packs/", payload);
+  return data;
+}
+
+// Modifie un pack (y compris archivage via is_actif)
+export async function updatePack(id, payload) {
+  const { data } = await api.patch(`/auth/admin/packs/${id}/`, payload);
+  return data;
+}
+
+// Supprime un pack (refusé par le backend s'il est attribué)
+export async function deletePack(id) {
+  await api.delete(`/auth/admin/packs/${id}/`);
+}
+
+// Attribue un pack à un organisateur (renvoie l'utilisateur mis à jour)
+export async function assignerPack(userId, packId) {
+  const { data } = await api.post(`/auth/admin/users/${userId}/abonnement/`, { pack_id: packId });
+  return data;
+}
+
+// Retire l'abonnement : l'organisateur repasse sur le pack gratuit
+export async function retirerPack(userId) {
+  const { data } = await api.delete(`/auth/admin/users/${userId}/abonnement/`);
+  return data;
+}
