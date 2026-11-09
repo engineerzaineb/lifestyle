@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Search, Users, ShieldCheck, Star, Ban, CheckCircle,
-  Mail, MapPin, Calendar, Ticket, X, UserCog, Filter, Package,
+  Mail, MapPin, Calendar, Ticket, X, UserCog, Filter, Package, History,
 } from "lucide-react";
 import {
   fetchUsers, toggleUserActive, toggleUserOrganisateur,
-  fetchPacks, assignerPack, retirerPack,
+  fetchPacks, assignerPack, retirerPack, fetchJournal,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { useAuth } from "../../context/useAuth";
@@ -31,6 +31,7 @@ export default function AdminUsers() {
   const [processing, setProcessing] = useState(false);
   const [packs, setPacks] = useState([]);
   const [packChoisi, setPackChoisi] = useState("");
+  const [historique, setHistorique] = useState(null);
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -66,6 +67,10 @@ useEffect(() => {
   const openUser = (u) => {
     setPackChoisi(u.abonnement?.pack?.id ? String(u.abonnement.pack.id) : "");
     setSelected(u);
+    setHistorique(null);
+    fetchJournal({ concerne: u.id })
+      .then((data) => setHistorique(data.results || []))
+      .catch(() => setHistorique([]));
   };
 
   // Remplace un utilisateur dans la liste après une action
@@ -391,6 +396,35 @@ useEffect(() => {
                   </div>
                 </div>
               )}
+
+              <div className={styles.historiqueBox}>
+                <p className={styles.packTitle}>
+                  <History size={14} /> Historique
+                </p>
+                {historique === null ? (
+                  <p className={styles.packInfo}>Chargement...</p>
+                ) : historique.length === 0 ? (
+                  <p className={styles.packInfo}>Aucune action enregistrée pour ce compte.</p>
+                ) : (
+                  <ul className={styles.historiqueList}>
+                    {historique.map((h) => (
+                      <li key={h.id}>
+                        <span className={styles.historiqueLabel}>
+                          {h.type_label} · {h.action_label}
+                          {h.cible_nom && ` : ${h.cible_nom}`}
+                        </span>
+                        <span className={styles.historiqueMeta}>
+                          {new Date(h.created_at).toLocaleString("fr-FR", {
+                            day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                          })}
+                          {h.acteur_nom && h.acteur_nom !== h.concerne_nom && ` · par ${h.acteur_nom}`}
+                        </span>
+                        {h.motif && <span className={styles.historiqueMotif}>Motif : {h.motif}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
               {selected.role === "admin" ? (
                 <p className={styles.warnBox}>

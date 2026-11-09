@@ -29,6 +29,13 @@ class Categorie(models.Model):
         default=True,
         help_text="False si proposée par un organisateur en attente de validation admin"
     )
+    # Traçabilité de la modération
+    date_validation = models.DateTimeField(null=True, blank=True)
+    validee_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='categories_validees',
+    )
+    date_refus = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -157,6 +164,18 @@ class Event(models.Model):
         blank=True, 
         help_text="Motif de refus (si applicable)"
     )
+
+    # Traçabilité du cycle de vie
+    date_soumission = models.DateTimeField(null=True, blank=True, help_text="Envoi à la validation")
+    date_validation = models.DateTimeField(null=True, blank=True, help_text="Acceptation par un admin")
+    date_publication = models.DateTimeField(null=True, blank=True, help_text="Première mise en ligne")
+    date_refus = models.DateTimeField(null=True, blank=True)
+    refuse_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='evenements_refuses',
+    )
+    date_annulation = models.DateTimeField(null=True, blank=True)
+    motif_annulation = models.TextField(blank=True)
 
     image = models.ImageField(upload_to='events/', blank=True)
     # Lien direct vers une image hébergée ailleurs (alternative à l'upload).
@@ -405,11 +424,19 @@ class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     titre = models.CharField(max_length=200)
     lien = models.CharField(max_length=200, blank=True)   # ex: /event/33
+    # vue : la cloche a été ouverte (le badge disparaît)
+    # lue : l'utilisateur a cliqué sur cette notification
+    # Rien n'est jamais supprimé : l'historique reste consultable.
+    vue = models.BooleanField(default=False)
     lue = models.BooleanField(default=False)
+    lue_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
 
     def __str__(self):
         return f"{self.user.email} — {self.titre}"

@@ -6,19 +6,49 @@ from .fidelite import remise_fidelite_pct
 from .models import Notification, notifier
 
 
+def _nom_complet(user):
+    if not user:
+        return None
+    return f"{user.prenom} {user.nom}".strip() or user.email
+
+
+# Dates et responsables du cycle de vie d'un événement (lecture seule)
+CHAMPS_TRACABILITE_EVENT = [
+    'date_soumission', 'date_validation', 'date_publication', 'date_refus',
+    'date_annulation', 'motif_annulation', 'valide_par_nom', 'refuse_par_nom',
+]
+
+
+class TracabiliteEventMixin(serializers.Serializer):
+    valide_par_nom = serializers.SerializerMethodField()
+    refuse_par_nom = serializers.SerializerMethodField()
+
+    def get_valide_par_nom(self, obj):
+        return _nom_complet(obj.valide_par)
+
+    def get_refuse_par_nom(self, obj):
+        return _nom_complet(obj.refuse_par)
+
+
 class CategorieSerializer(serializers.ModelSerializer):
     nb_events = serializers.SerializerMethodField()
     proposee_par_email = serializers.CharField(
         source='proposee_par.email', read_only=True, default=None
     )
+    validee_par_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = Categorie
         fields = [
             'id', 'nom', 'slug', 'icone', 'couleur',
             'is_validee', 'nb_events', 'proposee_par_email', 'created_at',
+            'date_validation', 'validee_par_nom', 'date_refus',
         ]
-        read_only_fields = ['slug', 'nb_events', 'proposee_par_email', 'created_at']
+        read_only_fields = ['slug', 'nb_events', 'proposee_par_email', 'created_at',
+                            'date_validation', 'validee_par_nom', 'date_refus']
+
+    def get_validee_par_nom(self, obj):
+        return _nom_complet(obj.validee_par)
 
     def get_nb_events(self, obj):
         return obj.evenements.count()
@@ -56,7 +86,7 @@ class TypeBilletSerializer(serializers.ModelSerializer):
         return data
 
 
-class EventListSerializer(serializers.ModelSerializer):
+class EventListSerializer(TracabiliteEventMixin, serializers.ModelSerializer):
     """Pour la liste des événements (vue allégée)."""
     categorie = CategorieSerializer(read_only=True)
     organisateur_nom = serializers.CharField(source='organisateur_nom_complet', read_only=True)
@@ -82,7 +112,7 @@ class EventListSerializer(serializers.ModelSerializer):
             'organisateur_nom', 'image_url', 'created_at',
             'motif_refus',
             'vues', 'inscriptions', 'revenue','is_favori',
-        ]
+        ] + CHAMPS_TRACABILITE_EVENT
 
     def get_image_url(self, obj):
         # Priorité au fichier uploadé ; sinon on renvoie le lien externe collé.
@@ -121,7 +151,7 @@ class EventListSerializer(serializers.ModelSerializer):
         return None
 
 
-class EventDetailSerializer(serializers.ModelSerializer):
+class EventDetailSerializer(TracabiliteEventMixin, serializers.ModelSerializer):
     """Pour la création / détail / mise à jour."""
     categorie = CategorieSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
@@ -167,8 +197,8 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'types_billets_data', 'is_draft',
             'vues', 'inscriptions', 'revenue','is_favori',
             'public_enfants', 'public_jeunes', 'public_adultes',
-        ]
-        read_only_fields = [
+        ] + CHAMPS_TRACABILITE_EVENT
+        read_only_fields = CHAMPS_TRACABILITE_EVENT + [
             'capacite', 'prix', 'is_valide', 'motif_refus',
             'created_at', 'updated_at', 'organisateur',
         ]
@@ -275,6 +305,10 @@ class EventDetailSerializer(serializers.ModelSerializer):
                     'proposee_par': organisateur,
                 }
             )
+            if created:
+                from users.models import journaliser
+                journaliser('categorie', 'propose', cat, acteur=organisateur, concerne=organisateur,
+                            details={'depuis': "formulaire d'événement"})
             return cat
 
         if slug:
@@ -519,4 +553,4 @@ class ReservationCreateSerializer(serializers.Serializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'titre', 'lien', 'lue', 'created_at']
+        fields = ['id', 'titre', 'lien', 'vue', 'lue', 'lue_at', 'created_at']

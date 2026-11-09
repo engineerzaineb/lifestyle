@@ -42,8 +42,7 @@ export default function EventHero({
           </button>
           {event.statut === "publie" && (
             <ShareMenu
-              url={`${window.location.origin}/event/${event.id}`}
-              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              event={event}
               trigger={
                 <button
                   className={`${styles.iconBtn} ${styles.iconBtnSolo}`}

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Pack, Abonnement, User
+from .models import Pack, Abonnement, User, journaliser, resume_abonnement
 from .serializers_packs import PackSerializer, AbonnementSerializer
 from .views_admin import IsAdminRole
 from events.models import notifier
@@ -59,6 +59,12 @@ class AdminPackListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(is_actif=False)
         return qs
 
+    def perform_create(self, serializer):
+        pack = serializer.save()
+        journaliser('pack', 'cree', pack, acteur=self.request.user,
+                    details={'prix': str(pack.prix), 'duree': pack.duree,
+                             'limite_evenements': pack.limite_evenements})
+
 
 class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/auth/admin/packs/<id>/
@@ -66,6 +72,21 @@ class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PackSerializer
     permission_classes = [IsAdminRole]
     queryset = Pack.objects.all()
+
+    # Champs suivis dans le journal quand un pack est modifié
+    CHAMPS_SUIVIS = ('nom', 'prix', 'duree', 'limite_evenements', 'commission_pct', 'max_billets_par_event', 'max_types_billets', 'is_actif')
+
+    def perform_update(self, serializer):
+        avant = {k: getattr(serializer.instance, k) for k in self.CHAMPS_SUIVIS}
+        pack = serializer.save()
+        changes = {k: [str(v), str(getattr(pack, k))] for k, v in avant.items()
+                   if v != getattr(pack, k)}
+        if 'is_actif' in changes and len(changes) == 1:
+            action = 'reactive' if pack.is_actif else 'archive'
+        else:
+            action = 'modifie'
+        journaliser('pack', action, pack, acteur=self.request.user,
+                    details={'changements': changes} if changes else {})
 
     def destroy(self, request, *args, **kwargs):
         pack = self.get_object()
@@ -75,6 +96,8 @@ class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
                            "Désactivez-le plutôt que de le supprimer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        journaliser('pack', 'supprime', pack, acteur=request.user,
+                    details={'prix': str(pack.prix), 'duree': pack.duree})
         return super().destroy(request, *args, **kwargs)
 
 
@@ -121,6 +144,9 @@ class AdminAssignerPackView(APIView):
             jours = 365 if pack.duree == 'annuel' else 30
             date_fin = timezone.now() + timedelta(days=jours)
 
+        ancien = getattr(user, 'abonnement', None)
+        ancien_pack = ancien.pack.nom if ancien else None
+
         # Un organisateur a au plus un abonnement (OneToOne) : on met à jour
         abo, cree = Abonnement.objects.update_or_create(
             organisateur=user,
@@ -131,6 +157,10 @@ class AdminAssignerPackView(APIView):
                 'assigne_par': request.user,
             },
         )
+
+        journaliser('abonnement', 'attribue', cible_id=abo.pk, cible_nom=pack.nom,
+                    acteur=request.user, concerne=user,
+                    details={**resume_abonnement(abo), 'ancien_pack': ancien_pack})
 
         # Notifier l'organisateur
         notifier(
@@ -155,5 +185,9 @@ class AdminRetirerPackView(APIView):
                 {'detail': "Cet organisateur n'a pas d'abonnement."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        journaliser('abonnement', 'retire', cible_id=abo.pk, cible_nom=abo.pack.nom,
+                    acteur=request.user, concerne=user, details=resume_abonnement(abo))
         abo.delete()
+        notifier(user, "Votre abonnement a été retiré : le pack gratuit s'applique désormais.",
+                 lien="/dashboard")
         return Response({'detail': "Abonnement retiré."}, status=status.HTTP_200_OK)

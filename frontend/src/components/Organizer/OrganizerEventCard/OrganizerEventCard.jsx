@@ -12,6 +12,7 @@ import {
 import { formatDate, formatPrice, formatCompactNumber } from "../../../utils/formatters";
 import styles from "./OrganizerEventCard.module.css";
 import ShareMenu from "../../ShareMenu/ShareMenu";
+import { resumeStatut } from "../../../utils/tracabilite";
 
 
 export default function OrganizerEventCard({ event, view = "grid", onAction }) {
@@ -69,6 +70,9 @@ function GridVariant({ event, onAction }) {
           </div>
         </div>
 
+        {/* Date du dernier changement de statut (publié le, refusé le...) */}
+        {resumeStatut(event) && <p className={styles.statutDate}>{resumeStatut(event)}</p>}
+
         {/* Motif de refus : visible uniquement pour un event refusé */}
         {event.statut === "refuse" && event.motif_refus && (
           <div className={styles.refusBox}>
@@ -92,8 +96,7 @@ function GridVariant({ event, onAction }) {
           )}
           {event.statut === "publie" && (
             <ShareMenu
-              url={`${window.location.origin}/event/${event.id}`}
-              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              event={event}
               trigger={
                 <button className={styles.actionBtn} type="button" title="Partager">
                   <Share2 size={12} />
@@ -145,6 +148,9 @@ function ListVariant({ event, onAction }) {
           </span>
         </div>
 
+        {/* Date du dernier changement de statut (publié le, refusé le...) */}
+        {resumeStatut(event) && <p className={styles.statutDate}>{resumeStatut(event)}</p>}
+
         {/* Motif de refus : visible uniquement pour un event refusé */}
         {event.statut === "refuse" && event.motif_refus && (
           <div className={styles.refusBox}>
@@ -185,8 +191,7 @@ function ListVariant({ event, onAction }) {
         )}
         {event.statut === "publie" && (
             <ShareMenu
-              url={`${window.location.origin}/event/${event.id}`}
-              text={`${event.titre} — ${event.ville || "Eventu"}`}
+              event={event}
               trigger={
                 <button className={styles.actionBtn} type="button" title="Partager">
                   <Share2 size={12} />

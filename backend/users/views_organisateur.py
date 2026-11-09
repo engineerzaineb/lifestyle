@@ -12,7 +12,7 @@ from .serializers import (
     HistoriqueDemandeSerializer,
 )
 from events.models import notifier, notifier_admins
-from .models import historiser_demande
+from .models import historiser_demande, journaliser
 
 
 class MonHistoriqueDemandesView(ListAPIView):
@@ -64,6 +64,9 @@ class DemandeOrganisateurView(APIView):
                 request.user, 'soumise',
                 nom_organisation=serializer.instance.nom_organisation,
             )
+            journaliser('organisateur', 'soumis', cible_id=serializer.instance.pk,
+                        cible_nom=serializer.instance.nom_organisation,
+                        acteur=request.user, concerne=request.user)
             # Prévenir les admins d'une nouvelle demande à traiter
             notifier_admins(
                 f"Nouvelle demande organisateur de {request.user.prenom} {request.user.nom}.",
@@ -167,6 +170,9 @@ class AdminValiderDemandeView(APIView):
 
         # Historique : demande acceptée
         historiser_demande(demande.user, 'acceptee', nom_organisation=demande.nom_organisation)
+        journaliser('organisateur', 'valide', cible_id=demande.pk, cible_nom=demande.nom_organisation,
+                    acteur=request.user, concerne=demande.user,
+                    details={'type_organisation': demande.type_organisation})
 
         # Notifier l'utilisateur que sa demande a été acceptée
         # (lien vers sa demande : il y voit le détail + l'accès au tableau de bord)
@@ -210,6 +216,8 @@ class AdminRefuserDemandeView(APIView):
 
         # Historique : demande refusée (avec motif)
         historiser_demande(demande.user, 'refusee', motif=motif, nom_organisation=demande.nom_organisation)
+        journaliser('organisateur', 'refuse', cible_id=demande.pk, cible_nom=demande.nom_organisation,
+                    acteur=request.user, concerne=demande.user, motif=motif)
 
         # Notifier l'utilisateur du refus, avec le motif
         notifier(

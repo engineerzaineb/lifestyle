@@ -117,8 +117,8 @@ export async function validerCategorie(id) {
 }
 
 // Refuse une proposition de catégorie 
-export async function refuserCategorie(id) {
-  const { data } = await api.post(`/categories/${id}/refuser/`);
+export async function refuserCategorie(id, motif = "") {
+  const { data } = await api.post(`/categories/${id}/refuser/`, { motif });
   return data;
 }
 
@@ -169,4 +169,19 @@ export async function assignerPack(userId, packId) {
 export async function retirerPack(userId) {
   const { data } = await api.delete(`/auth/admin/users/${userId}/abonnement/`);
   return data;
+}
+
+//  JOURNAL D'ACTIVITÉ
+
+/**
+ * Historique des actions tracées (20 par page).
+ * @param {object} filters - { page, type, action, q, concerne, cible_id, depuis, jusqua }
+ */
+export async function fetchJournal(filters = {}) {
+  const params = {};
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params[k] = v;
+  });
+  const { data } = await api.get("/auth/admin/journal/", { params });
+  return data; // { count, next, previous, results }
 }

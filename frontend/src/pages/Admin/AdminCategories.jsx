@@ -133,11 +133,14 @@ export default function AdminCategories() {
   };
 
   const handleRefuser = async (cat) => {
-    if (!window.confirm(`Refuser la proposition "${cat.nom}" ?`)) return;
+    const motif = window.prompt(
+      `Refuser la proposition "${cat.nom}" ?\nMotif (facultatif, envoyé à l'organisateur) :`, ""
+    );
+    if (motif === null) return;
 
     setProcessing(true);
     try {
-      const res = await refuserCategorie(cat.id);
+      const res = await refuserCategorie(cat.id, motif.trim());
       toast.success(res.detail || "Proposition refusée");
       loadCategories();
     } catch (err) {
@@ -230,7 +233,13 @@ export default function AdminCategories() {
                   )}
                   {activeTab === "en_attente" && cat.created_at && (
                     <span className={styles.cardDate}>
-                      <Calendar size={11} /> {formatDate(cat.created_at)}
+                      <Calendar size={11} /> proposée le {formatDate(cat.created_at)}
+                    </span>
+                  )}
+                  {activeTab === "validee" && cat.date_validation && (
+                    <span className={styles.cardDate}>
+                      <CheckCircle size={11} /> validée le {formatDate(cat.date_validation)}
+                      {cat.validee_par_nom && ` par ${cat.validee_par_nom}`}
                     </span>
                   )}
                 </div>

@@ -3,6 +3,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.password_validation import validate_password
 from .models import User, UserLocation, Interet
 from .models import DemandeOrganisateur
+from .models import JournalActivite
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
@@ -452,3 +453,19 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password'])
         return user
+
+
+# JOURNAL D'ACTIVITÉ
+
+class JournalActiviteSerializer(serializers.ModelSerializer):
+    type_label = serializers.CharField(source='get_type_cible_display', read_only=True)
+    action_label = serializers.CharField(source='get_action_display', read_only=True)
+
+    class Meta:
+        model = JournalActivite
+        fields = [
+            'id', 'type_cible', 'type_label', 'action', 'action_label',
+            'cible_id', 'cible_nom', 'acteur', 'acteur_nom',
+            'concerne', 'concerne_nom', 'motif', 'details', 'created_at',
+        ]
+        read_only_fields = fields

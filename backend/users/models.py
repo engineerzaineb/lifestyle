@@ -487,3 +487,120 @@ def verifier_limites_billets(user, billets):
             f"(capacité demandée : {sum(capacites)})."
         )
     return None
+
+
+# JOURNAL D'ACTIVITÉ (traçabilité des actions)
+
+class JournalActivite(models.Model):
+    """Trace de chaque action importante : validation/refus d'un événement ou
+    d'une catégorie, création/suppression d'un pack, attribution d'un abonnement...
+    Les noms sont copiés au moment de l'action pour rester lisibles même si
+    l'objet ou l'utilisateur est supprimé ensuite."""
+
+    TYPE_CHOICES = (
+        ('evenement', 'Événement'),
+        ('categorie', 'Catégorie'),
+        ('pack', 'Pack'),
+        ('abonnement', 'Abonnement'),
+        ('organisateur', 'Organisateur'),
+        ('utilisateur', 'Utilisateur'),
+    )
+
+    ACTION_CHOICES = (
+        ('cree', 'Créé'),
+        ('propose', 'Proposé'),
+        ('modifie', 'Modifié'),
+        ('supprime', 'Supprimé'),
+        ('soumis', 'Soumis à validation'),
+        ('valide', 'Accepté'),
+        ('refuse', 'Refusé'),
+        ('publie', 'Publié'),
+        ('annule', 'Annulé'),
+        ('archive', 'Archivé'),
+        ('reactive', 'Réactivé'),
+        ('attribue', 'Attribué'),
+        ('retire', 'Retiré'),
+        ('promu', 'Promu organisateur'),
+        ('retrograde', 'Statut organisateur retiré'),
+        ('desactive', 'Compte désactivé'),
+        ('active', 'Compte réactivé'),
+    )
+
+    type_cible = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    cible_id = models.PositiveIntegerField(null=True, blank=True)
+    cible_nom = models.CharField(max_length=200, blank=True)
+
+    # Qui a fait l'action
+    acteur = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='actions_journalisees',
+    )
+    acteur_nom = models.CharField(max_length=200, blank=True)
+
+    # Utilisateur concerné (organisateur de l'événement, abonné...)
+    concerne = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='journal_concernant',
+    )
+    concerne_nom = models.CharField(max_length=200, blank=True)
+
+    motif = models.TextField(blank=True, default='')
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        verbose_name = "Entrée du journal"
+        verbose_name_plural = "Journal d'activité"
+        indexes = [
+            models.Index(fields=['type_cible', 'cible_id']),
+            models.Index(fields=['concerne', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} — {self.get_type_cible_display()} « {self.cible_nom} » {self.get_action_display()}"
+
+
+def _nom_utilisateur(user):
+    if not user:
+        return ''
+    nom = f"{user.prenom} {user.nom}".strip()
+    return f"{nom} ({user.email})" if nom else user.email
+
+
+def resume_abonnement(abonnement):
+    """Détails d'un abonnement à copier dans le journal."""
+    if not abonnement:
+        return {}
+    return {
+        'pack': abonnement.pack.nom,
+        'prix': str(abonnement.pack.prix),
+        'duree': abonnement.pack.duree,
+        'date_debut': abonnement.date_debut.isoformat() if abonnement.date_debut else None,
+        'date_fin': abonnement.date_fin.isoformat() if abonnement.date_fin else None,
+    }
+
+
+def journaliser(type_cible, action, cible=None, acteur=None, concerne=None,
+                motif='', details=None, cible_nom=None, cible_id=None):
+    """Ajoute une entrée au journal d'activité.
+    cible : l'objet concerné (événement, catégorie, pack...) ; son id et son nom
+    (titre/nom) sont copiés. cible_nom/cible_id permettent de forcer ces valeurs."""
+    if cible is not None:
+        cible_id = cible_id if cible_id is not None else cible.pk
+        if cible_nom is None:
+            cible_nom = getattr(cible, 'titre', None) or getattr(cible, 'nom', None) or str(cible)
+    acteur = acteur if getattr(acteur, 'is_authenticated', False) else None
+    return JournalActivite.objects.create(
+        type_cible=type_cible,
+        action=action,
+        cible_id=cible_id,
+        cible_nom=(cible_nom or '')[:200],
+        acteur=acteur,
+        acteur_nom=_nom_utilisateur(acteur)[:200],
+        concerne=concerne,
+        concerne_nom=_nom_utilisateur(concerne)[:200],
+        motif=motif or '',
+        details=details or {},
+    )

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserLocation, Interet, Pack, Abonnement
+from .models import User, UserLocation, Interet, Pack, Abonnement, JournalActivite
 
 
 # affichage du modèle User dans l'admin
@@ -71,3 +71,21 @@ class AbonnementAdmin(admin.ModelAdmin):
     list_filter = ['statut', 'pack']
     search_fields = ['organisateur__email', 'organisateur__nom']
     ordering = ['-date_debut']
+
+
+# journal d'activité (lecture seule : une trace ne se modifie pas)
+@admin.register(JournalActivite)
+class JournalActiviteAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'type_cible', 'action', 'cible_nom', 'acteur_nom', 'concerne_nom']
+    list_filter = ['type_cible', 'action', 'created_at']
+    search_fields = ['cible_nom', 'acteur_nom', 'concerne_nom', 'motif']
+    ordering = ['-created_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

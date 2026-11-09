@@ -7,6 +7,8 @@ import {
   fetchEventsAModerer, validerEvent, refuserEvent,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import EventTimeline from "../../components/EventTimeline/EventTimeline";
+import { resumeStatut } from "../../utils/tracabilite";
 import styles from "./AdminEvents.module.css";
 
 const TABS = [
@@ -145,6 +147,14 @@ export default function AdminEvents() {
                   {formatDate(event.date_evenement)}
                   {event.ville && <> · <MapPin size={12} /> {event.ville}</>}
                 </p>
+                {resumeStatut(event) && (
+                  <p className={styles.cardStatut}>
+                    <Clock size={12} />
+                    {resumeStatut(event)}
+                    {event.statut === "publie" && event.valide_par_nom && ` · validé par ${event.valide_par_nom}`}
+                    {event.statut === "refuse" && event.refuse_par_nom && ` · par ${event.refuse_par_nom}`}
+                  </p>
+                )}
               </div>
               <div className={styles.cardActions}>
                 <button
@@ -251,6 +261,11 @@ function DetailModal({ event, onClose, onValider, onRefuser, processing, formatD
               <p className={styles.detailText}>{event.description}</p>
             </div>
           )}
+
+          <div className={styles.detailDescription}>
+            <p className={styles.detailLabel}>Historique</p>
+            <EventTimeline event={event} />
+          </div>
         </div>
 
         {/* Actions si en attente */}

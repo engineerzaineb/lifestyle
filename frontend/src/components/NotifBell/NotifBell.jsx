@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell, Check } from "lucide-react";
-import { fetchNotifications, marquerLue, toutMarquerLu } from "../../services/notificationService";
+import {
+  fetchNotifications, marquerVues, marquerLue, toutMarquerLu,
+} from "../../services/notificationService";
 import styles from "./NotifBell.module.css";
 
 export default function NotifBell() {
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState([]);
   const [nonLues, setNonLues] = useState(0);
+  const [nonVues, setNonVues] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -15,8 +18,9 @@ export default function NotifBell() {
   const charger = () => {
     fetchNotifications()
       .then((data) => {
-        setNotifs(data.results || []);
+        setNotifs((data.results || []).slice(0, 10));
         setNonLues(data.non_lues || 0);
+        setNonVues(data.non_vues || 0);
       })
       .catch(() => { /* silencieux */ });
   };
@@ -59,13 +63,15 @@ export default function NotifBell() {
     } catch { /* ignore */ }
   };
 
-  // Ouvre/ferme le menu. À l'OUVERTURE, on marque tout comme lu : le badge
-  // rouge disparaît dès que l'utilisateur a vu ses notifications.
+  // Ouvre/ferme le menu. À l'ouverture, les notifications sont « vues » :
+  // le badge rouge disparaît, mais chacune reste en surbrillance (non lue)
+  // tant que l'utilisateur ne l'a pas ouverte — comme sur Facebook.
   const toggleMenu = () => {
     const willOpen = !open;
     setOpen(willOpen);
-    if (willOpen && nonLues > 0) {
-      handleToutLu();
+    if (willOpen && nonVues > 0) {
+      setNonVues(0);
+      marquerVues().catch(() => { /* ignore */ });
     }
   };
 
@@ -77,7 +83,7 @@ export default function NotifBell() {
     <div className={styles.wrapper} ref={ref}>
       <button className={styles.bellBtn} onClick={toggleMenu} aria-label="Notifications">
         <Bell size={15} />
-        {nonLues > 0 && <span className={styles.badge}>{nonLues}</span>}
+        {nonVues > 0 && <span className={styles.badge}>{nonVues > 99 ? "99+" : nonVues}</span>}
       </button>
 
       {open && (
@@ -86,7 +92,7 @@ export default function NotifBell() {
             <span>Notifications</span>
             {nonLues > 0 && (
               <button className={styles.toutLu} onClick={handleToutLu}>
-                <Check size={13} /> Tout lire
+                <Check size={13} /> Tout marquer comme lu
               </button>
             )}
           </div>
@@ -110,6 +116,10 @@ export default function NotifBell() {
               ))}
             </div>
           )}
+
+          <Link to="/notifications" className={styles.voirTout} onClick={() => setOpen(false)}>
+            Voir toutes les notifications
+          </Link>
         </div>
       )}
     </div>

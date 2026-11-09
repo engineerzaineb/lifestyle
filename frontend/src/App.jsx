@@ -28,6 +28,7 @@ import Profile from "./pages/Profile/Profile";
 import HomeUser from "./pages/HomeUser/HomeUser";
 import MyReservations from "./pages/MyReservations/MyReservations";
 import Favoris from "./pages/Favoris/Favoris";
+import Notifications from "./pages/Notifications/Notifications";
 import DevenirOrganisateur from "./pages/DevenirOrganisateur/DevenirOrganisateur";
 import ForgotPassword from "./pages/ForgotPassword/ForgotPassword";
 import ResetPassword from "./pages/ForgotPassword/ResetPassword";
@@ -51,6 +52,7 @@ import AdminUsers from "./pages/Admin/AdminUsers";
 import AdminCategories from "./pages/Admin/AdminCategories";
 import AdminPacks from "./pages/Admin/AdminPacks";
 import AdminPackForm from "./pages/Admin/AdminPackForm";
+import AdminJournal from "./pages/Admin/AdminJournal";
 
 import "./App.css";
 
@@ -111,6 +113,9 @@ function AppContent() {
           <Route path="/favoris" element={
             <ProtectedRoute><Favoris /></ProtectedRoute>
           } />
+          <Route path="/notifications" element={
+            <ProtectedRoute><Notifications /></ProtectedRoute>
+          } />
           {<Route path="/booking/:id" element={
             <ProtectedRoute><Booking /></ProtectedRoute>
           } />}
@@ -156,6 +161,8 @@ function AppContent() {
             <Route path="packs" element={<AdminPacks />} />
             <Route path="packs/nouveau" element={<AdminPackForm />} />
             <Route path="packs/:id/modifier" element={<AdminPackForm />} />
+            <Route path="journal" element={<AdminJournal />} />
+            <Route path="notifications" element={<Notifications />} />
           </Route>
 
           {/* LEGAL & ENTREPRISE */}

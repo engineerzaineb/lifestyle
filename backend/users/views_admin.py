@@ -6,7 +6,7 @@ from django.db.models import Q, Count
 from datetime import timedelta
 from django.utils import timezone
 
-from .models import User, DemandeOrganisateur, Interet, Pack, Abonnement
+from .models import User, DemandeOrganisateur, Interet, Pack, Abonnement, journaliser, resume_abonnement
 from .serializers import AdminUserListSerializer
 from events.models import notifier
 from .models import historiser_demande
@@ -87,6 +87,9 @@ class AdminUserToggleActiveView(APIView):
 
         user.is_active = not user.is_active
         user.save(update_fields=['is_active'])
+        journaliser('utilisateur', 'active' if user.is_active else 'desactive',
+                    cible=user, cible_nom=user.email, acteur=request.user, concerne=user,
+                    motif=(request.data.get('motif') or '').strip())
 
         return Response(AdminUserListSerializer(user).data)
 
@@ -112,6 +115,9 @@ class AdminUserToggleOrganisateurView(APIView):
 
         user.is_organisateur = not user.is_organisateur
         user.save(update_fields=['is_organisateur'])
+        journaliser('organisateur', 'promu' if user.is_organisateur else 'retrograde',
+                    cible=user, cible_nom=user.email, acteur=request.user, concerne=user,
+                    details={'via': 'gestion des utilisateurs'})
 
         # Cohérence : on aligne la demande éventuelle sur le nouvel état
         demande = getattr(user, 'demande_organisateur', None)
@@ -209,9 +215,11 @@ class AdminUserAbonnementView(APIView):
             return Response({'detail': 'Pack introuvable ou archivé'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        ancien = getattr(user, 'abonnement', None)
+        ancien_pack = ancien.pack.nom if ancien else None
         maintenant = timezone.now()
         date_fin = None if pack.is_gratuit else maintenant + timedelta(days=pack.nb_jours)
-        Abonnement.objects.update_or_create(
+        abo, _ = Abonnement.objects.update_or_create(
             organisateur=user,
             defaults={
                 'pack': pack,
@@ -221,6 +229,10 @@ class AdminUserAbonnementView(APIView):
                 'assigne_par': request.user,
             },
         )
+
+        journaliser('abonnement', 'attribue', cible_id=abo.pk, cible_nom=pack.nom,
+                    acteur=request.user, concerne=user,
+                    details={**resume_abonnement(abo), 'ancien_pack': ancien_pack})
 
         notifier(
             user,
@@ -235,6 +247,54 @@ class AdminUserAbonnementView(APIView):
         if not user:
             return Response({'detail': 'Utilisateur introuvable'},
                             status=status.HTTP_404_NOT_FOUND)
-        Abonnement.objects.filter(organisateur=user).delete()
+        abo = Abonnement.objects.filter(organisateur=user).select_related('pack').first()
+        if abo:
+            journaliser('abonnement', 'retire', cible_id=abo.pk, cible_nom=abo.pack.nom,
+                        acteur=request.user, concerne=user, details=resume_abonnement(abo))
+            abo.delete()
+            notifier(user, "Votre abonnement a été retiré : le pack gratuit s'applique désormais.",
+                     lien="/dashboard")
         user.refresh_from_db()
         return Response(AdminUserListSerializer(user).data)
+
+
+# JOURNAL D'ACTIVITÉ
+
+class AdminJournalView(generics.ListAPIView):
+    """GET /api/auth/admin/journal/
+    Toutes les actions tracées, des plus récentes aux plus anciennes (20 par page).
+    Filtres : ?type=evenement|categorie|pack|abonnement|organisateur|utilisateur
+              ?action=valide|refuse|...  ?concerne=<id user>  ?cible_id=<id>
+              ?q=<texte>  ?depuis=AAAA-MM-JJ  ?jusqua=AAAA-MM-JJ
+    """
+    permission_classes = [IsAdminRole]
+
+    def get_serializer_class(self):
+        from .serializers import JournalActiviteSerializer
+        return JournalActiviteSerializer
+
+    def get_queryset(self):
+        from .models import JournalActivite
+        qs = JournalActivite.objects.all()
+        p = self.request.query_params
+
+        if p.get('type'):
+            qs = qs.filter(type_cible=p['type'])
+        if p.get('action'):
+            qs = qs.filter(action=p['action'])
+        if p.get('concerne'):
+            qs = qs.filter(concerne_id=p['concerne'])
+        if p.get('cible_id'):
+            qs = qs.filter(cible_id=p['cible_id'])
+        if p.get('depuis'):
+            qs = qs.filter(created_at__date__gte=p['depuis'])
+        if p.get('jusqua'):
+            qs = qs.filter(created_at__date__lte=p['jusqua'])
+
+        q = (p.get('q') or '').strip()
+        if len(q) >= 2:
+            qs = qs.filter(
+                Q(cible_nom__icontains=q) | Q(acteur_nom__icontains=q)
+                | Q(concerne_nom__icontains=q) | Q(motif__icontains=q)
+            )
+        return qs

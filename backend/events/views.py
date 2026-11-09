@@ -15,7 +15,7 @@ from .serializers import (
 )
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-from users.models import verifier_quota_evenements, verifier_limites_billets
+from users.models import verifier_quota_evenements, verifier_limites_billets, journaliser
 
 
 # Mapping des mois français vers leur numéro
@@ -93,6 +93,13 @@ class IsAdminRole(permissions.BasePermission):
 
 
 # HELPERS
+
+def _marquer_soumis(event, acteur):
+    """Date et trace l'envoi d'un événement à la validation admin."""
+    event.date_soumission = timezone.now()
+    event.save(update_fields=['date_soumission'])
+    journaliser('evenement', 'soumis', event, acteur=acteur, concerne=event.organisateur)
+
 
 # Filtre par période (today, weekend, month)
 def apply_date_filter(qs, period):
@@ -462,10 +469,20 @@ class EventViewSet(viewsets.ModelViewSet):
             if erreur:
                 raise PermissionDenied(erreur)
 
-        serializer.save(organisateur=user, is_valide=False)
+        event = serializer.save(organisateur=user, is_valide=False)
+        journaliser('evenement', 'cree', event, acteur=user, concerne=user,
+                    details={'statut': event.statut})
+        if event.statut == 'en_attente':
+            _marquer_soumis(event, user)
 
     # À chaque modification d'un event PUBLIÉ, on prévient les participants
     # si un détail important a changé (date/heure, lieu, ville).
+    # Suppression : on garde une trace (titre, statut) dans le journal
+    def perform_destroy(self, instance):
+        journaliser('evenement', 'supprime', instance, acteur=self.request.user,
+                    concerne=instance.organisateur, details={'statut': instance.statut})
+        instance.delete()
+
     def perform_update(self, serializer):
         event = serializer.instance
         # Ancien état (avant sauvegarde)
@@ -475,6 +492,7 @@ class EventViewSet(viewsets.ModelViewSet):
             'ville': event.ville,
         }
         etait_publie = event.statut == 'publie'
+        etait_brouillon = event.statut == 'brouillon'
 
         user = self.request.user
         soumis = not serializer.validated_data.get('is_draft', False)
@@ -496,6 +514,9 @@ class EventViewSet(viewsets.ModelViewSet):
 
         event = serializer.save()
 
+        if etait_brouillon and event.statut == 'en_attente':
+            _marquer_soumis(event, user)
+
         # On ne notifie que si l'event est publié (un brouillon n'a pas de participants)
         if not etait_publie:
             return
@@ -507,6 +528,9 @@ class EventViewSet(viewsets.ModelViewSet):
             changements.append("le lieu")
         if ancien['ville'] != event.ville:
             changements.append("la ville")
+
+        journaliser('evenement', 'modifie', event, acteur=user, concerne=event.organisateur,
+                    details={'champs_importants': changements} if changements else {})
 
         if changements:
             quoi = ", ".join(changements)
@@ -1260,9 +1284,13 @@ class EventViewSet(viewsets.ModelViewSet):
         motif = (request.data.get('reason') or request.data.get('motif') or '').strip()
 
         event.statut = 'annule'
+        event.date_annulation = timezone.now()
+        event.motif_annulation = motif
         if motif:
             event.motif_refus = motif
         event.save()
+        journaliser('evenement', 'annule', event, acteur=request.user,
+                    concerne=event.organisateur, motif=motif)
 
         # Notifier TOUS les participants (réservations confirmées) de l'annulation
         msg = f"L'événement « {event.titre} » a été annulé."
@@ -1341,6 +1369,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
         event.statut = 'en_attente'
         event.save()
+        _marquer_soumis(event, request.user)
 
         # Prévenir les admins qu'un nouvel événement attend leur validation
         notifier_admins(
@@ -1360,10 +1389,17 @@ class EventViewSet(viewsets.ModelViewSet):
     )
     def valider(self, request, pk=None):
         event = self.get_object()
+        maintenant = timezone.now()
         event.is_valide = True
         event.statut = 'publie'
         event.valide_par = request.user
+        event.date_validation = maintenant
+        # Date de première mise en ligne : conservée si l'événement est revalidé
+        if not event.date_publication:
+            event.date_publication = maintenant
         event.save()
+        journaliser('evenement', 'valide', event, acteur=request.user,
+                    concerne=event.organisateur, details={'publie_le': maintenant.isoformat()})
         # Notifier l'organisateur que son événement est publié
         notifier(
             event.organisateur,
@@ -1383,8 +1419,11 @@ class EventViewSet(viewsets.ModelViewSet):
         event = self.get_object()
         event.statut = 'refuse'
         event.motif_refus = request.data.get('motif', '')
-        event.valide_par = request.user
+        event.refuse_par = request.user
+        event.date_refus = timezone.now()
         event.save()
+        journaliser('evenement', 'refuse', event, acteur=request.user,
+                    concerne=event.organisateur, motif=event.motif_refus)
         # Notifier l'organisateur du refus, avec le motif s'il y en a un
         msg = f"Votre événement « {event.titre} » a été refusé."
         if event.motif_refus:
@@ -1424,7 +1463,28 @@ class CategorieViewSet(viewsets.ModelViewSet):
         # Un admin crée une catégorie validée d'office ;
         # tout autre utilisateur la PROPOSE (en attente de validation)
         est_admin = user.is_authenticated and user.role == 'admin'
-        serializer.save(is_validee=est_admin, proposee_par=user)
+        cat = serializer.save(
+            is_validee=est_admin,
+            proposee_par=user,
+            # Créée par un admin : validée d'office, donc datée tout de suite
+            date_validation=timezone.now() if est_admin else None,
+            validee_par=user if est_admin else None,
+        )
+        journaliser('categorie', 'cree' if est_admin else 'propose', cat,
+                    acteur=user, concerne=None if est_admin else user)
+        if not est_admin:
+            notifier_admins(
+                f"Nouvelle catégorie proposée : « {cat.nom} » par {user.prenom} {user.nom}.",
+                lien="/admin/categories",
+            )
+
+    def perform_update(self, serializer):
+        avant = {k: getattr(serializer.instance, k) for k in ('nom', 'icone', 'couleur')}
+        cat = serializer.save()
+        changes = {k: [v, getattr(cat, k)] for k, v in avant.items() if v != getattr(cat, k)}
+        if changes:
+            journaliser('categorie', 'modifie', cat, acteur=self.request.user,
+                        details={'changements': changes})
 
     def destroy(self, request, *args, **kwargs):
         categorie = self.get_object()
@@ -1434,6 +1494,8 @@ class CategorieViewSet(viewsets.ModelViewSet):
                            f"événement(s) utilisent cette catégorie."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        journaliser('categorie', 'supprime', categorie, acteur=request.user,
+                    concerne=categorie.proposee_par)
         return super().destroy(request, *args, **kwargs)
         
         
@@ -1450,7 +1512,15 @@ class CategorieViewSet(viewsets.ModelViewSet):
     def valider(self, request, pk=None):
         cat = self.get_object()
         cat.is_validee = True
-        cat.save(update_fields=['is_validee'])
+        cat.date_validation = timezone.now()
+        cat.validee_par = request.user
+        cat.date_refus = None
+        cat.save(update_fields=['is_validee', 'date_validation', 'validee_par', 'date_refus'])
+        journaliser('categorie', 'valide', cat, acteur=request.user, concerne=cat.proposee_par)
+        if cat.proposee_par and cat.proposee_par != request.user:
+            notifier(cat.proposee_par,
+                     f"Votre proposition de catégorie « {cat.nom} » a été acceptée.",
+                     lien="/organizer/create")
         return Response(self.get_serializer(cat).data)
 
     # POST /api/categories/{id}/refuser/
@@ -1459,9 +1529,19 @@ class CategorieViewSet(viewsets.ModelViewSet):
         """Refuse une proposition. Supprime si inutilisée, sinon la garde
         masquée pour ne pas casser les événements existants."""
         cat = self.get_object()
-        if cat.evenements.exists():
+        motif = (request.data.get('motif') or '').strip()
+        garde = cat.evenements.exists()
+        journaliser('categorie', 'refuse', cat, acteur=request.user, concerne=cat.proposee_par,
+                    motif=motif, details={'supprimee': not garde})
+        if cat.proposee_par and cat.proposee_par != request.user:
+            msg = f"Votre proposition de catégorie « {cat.nom} » a été refusée."
+            if motif:
+                msg += f" Motif : {motif}"
+            notifier(cat.proposee_par, msg)
+        if garde:
             cat.is_validee = False
-            cat.save(update_fields=['is_validee'])
+            cat.date_refus = timezone.now()
+            cat.save(update_fields=['is_validee', 'date_refus'])
             return Response({
                 'detail': "Catégorie masquée (des événements l'utilisent).",
                 'deleted': False,
@@ -1615,15 +1695,40 @@ from .models import Notification
 from .serializers import NotificationSerializer
 
 class NotificationViewSet(viewsets.ViewSet):
-    """Notifications du user connecté (affichées via la cloche)."""
+    """Notifications du user connecté, fonctionnement façon Facebook :
+    - « vue » : la cloche a été ouverte → le badge disparaît ;
+    - « lue » : l'utilisateur a cliqué dessus → elle n'est plus en surbrillance.
+    Rien n'est supprimé : tout l'historique reste consultable (page /notifications)."""
     permission_classes = [permissions.IsAuthenticated]
+    TAILLE_PAGE = 20
 
-    # GET /api/notifications/  -> liste + nombre de non-lues
+    # GET /api/notifications/?page=1&filtre=non_lues
+    # -> { results, count, page, has_next, non_lues, non_vues }
     def list(self, request):
-        qs = Notification.objects.filter(user=request.user)[:30]
-        serializer = NotificationSerializer(qs, many=True)
-        non_lues = Notification.objects.filter(user=request.user, lue=False).count()
-        return Response({'results': serializer.data, 'non_lues': non_lues})
+        tout = Notification.objects.filter(user=request.user)
+        qs = tout.filter(lue=False) if request.query_params.get('filtre') == 'non_lues' else tout
+
+        try:
+            page = max(int(request.query_params.get('page', 1)), 1)
+        except ValueError:
+            page = 1
+        debut = (page - 1) * self.TAILLE_PAGE
+        total = qs.count()
+        serializer = NotificationSerializer(qs[debut:debut + self.TAILLE_PAGE], many=True)
+        return Response({
+            'results': serializer.data,
+            'count': total,
+            'page': page,
+            'has_next': debut + self.TAILLE_PAGE < total,
+            'non_lues': tout.filter(lue=False).count(),
+            'non_vues': tout.filter(vue=False).count(),
+        })
+
+    # POST /api/notifications/vues/  -> la cloche a été ouverte (badge à zéro)
+    @action(detail=False, methods=['post'], url_path='vues')
+    def marquer_vues(self, request):
+        Notification.objects.filter(user=request.user, vue=False).update(vue=True)
+        return Response({'non_vues': 0})
 
     # POST /api/notifications/{id}/lue/  -> marque une notif comme lue
     @action(detail=True, methods=['post'], url_path='lue')
@@ -1631,13 +1736,17 @@ class NotificationViewSet(viewsets.ViewSet):
         n = Notification.objects.filter(user=request.user, pk=pk).first()
         if not n:
             return Response({'detail': 'Introuvable.'}, status=status.HTTP_404_NOT_FOUND)
-        n.lue = True
-        n.save()
-        return Response({'id': n.id, 'lue': True})
+        if not n.lue:
+            n.lue = True
+            n.vue = True
+            n.lue_at = timezone.now()
+            n.save(update_fields=['lue', 'vue', 'lue_at'])
+        return Response(NotificationSerializer(n).data)
 
     # POST /api/notifications/tout-lu/  -> marque tout comme lu
     @action(detail=False, methods=['post'], url_path='tout-lu')
     def tout_lu(self, request):
-        Notification.objects.filter(user=request.user, lue=False).update(lue=True)
+        Notification.objects.filter(user=request.user, lue=False).update(
+            lue=True, vue=True, lue_at=timezone.now())
         return Response({'detail': 'Toutes les notifications sont lues.'})
     

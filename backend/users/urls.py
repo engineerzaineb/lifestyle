@@ -25,6 +25,7 @@ from .views_admin import (
     AdminUserToggleOrganisateurView,
     AdminStatsView,
     AdminUserAbonnementView,
+    AdminJournalView,
 )
 from .views_packs import (
     PackListPublicView,
@@ -80,6 +81,7 @@ urlpatterns = [
     path('admin/users/<int:pk>/toggle-active/', AdminUserToggleActiveView.as_view(), name='admin-user-toggle-active'),
     path('admin/users/<int:pk>/toggle-organisateur/', AdminUserToggleOrganisateurView.as_view(), name='admin-user-toggle-organisateur'),
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
+    path('admin/journal/', AdminJournalView.as_view(), name='admin-journal'),
     # Administration : packs et abonnements
     path('admin/packs/', AdminPackListCreateView.as_view(), name='admin-packs-list'),
     path('admin/packs/<int:pk>/', AdminPackDetailView.as_view(), name='admin-pack-detail'),

@@ -107,6 +107,17 @@
   margin: 0;
 }
 
+.cardStatut {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
 .cardActions {
   display: flex;
   gap: 8px;

@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Inbox, Calendar, Users, Tag, Package, ArrowLeft, Shield, LogOut,
+  LayoutDashboard, Inbox, Calendar, Users, Tag, Package, History, Bell, ArrowLeft, Shield, LogOut,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import styles from "./AdminLayout.module.css";
@@ -12,6 +12,8 @@ const MENU_ITEMS = [
   { to: "/admin/users", label: "Utilisateurs", icon: Users },
   { to: "/admin/categories", label: "Catégories", icon: Tag },
   { to: "/admin/packs", label: "Packs", icon: Package },
+  { to: "/admin/journal", label: "Journal d'activité", icon: History },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
 export default function AdminLayout() {

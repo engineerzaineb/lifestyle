@@ -61,3 +61,13 @@
 .copiedIcon {
   color: #16a34a;
 }
+.note {
+  max-width: 230px;
+  margin: 4px 8px 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}

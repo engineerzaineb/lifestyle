@@ -1,5 +1,6 @@
 import { CheckCircle, Users, Calendar, Percent, Ticket, Gift } from "lucide-react";
 import { PACK_OPTIONS, formatPrixPack } from "../../utils/packs";
+import { formatDateHeure } from "../../utils/tracabilite";
 import styles from "./PackCard.module.css";
 
 /**
@@ -92,6 +93,14 @@ export default function PackCard({ pack, actions = null }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {pack.created_at && (
+        <p className={styles.dates}>
+          Créé le {formatDateHeure(pack.created_at)}
+          {pack.updated_at && pack.updated_at !== pack.created_at &&
+            ` · modifié le ${formatDateHeure(pack.updated_at)}`}
+        </p>
       )}
     </div>
   );

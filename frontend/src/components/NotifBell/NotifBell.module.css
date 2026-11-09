@@ -104,3 +104,16 @@
 .itemTitre { font-size: 13px; color: var(--color-text); margin: 0 0 3px; line-height: 1.4; }
 
 .itemDate { font-size: 11px; color: var(--color-text-muted); margin: 0; }
+
+.voirTout {
+  display: block;
+  padding: 11px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.voirTout:hover { background: var(--color-surface-alt); }
