@@ -1,159 +1,96 @@
-from rest_framework import generics, permissions, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from datetime import timedelta
+import re
 
-from .models import Pack, Abonnement, User
-from .serializers_packs import PackSerializer, AbonnementSerializer
-from .views_admin import IsAdminRole
-from events.models import notifier
+from rest_framework import serializers
+from .models import Pack, Abonnement
 
 
-# =========================================================================
-#  PACKS — côté public (organisateurs) : lecture seule des packs actifs
-# =========================================================================
+class PackSerializer(serializers.ModelSerializer):
+    """Sérialise un pack d'abonnement (lecture + écriture admin)."""
+    avantages_liste = serializers.ListField(read_only=True)
+    est_gratuit = serializers.BooleanField(read_only=True)
+    est_illimite = serializers.BooleanField(read_only=True)
+    nb_abonnes = serializers.SerializerMethodField()
 
-class PackListPublicView(generics.ListAPIView):
-    """GET /api/auth/packs/
-    Liste des packs actifs (visible par tous les utilisateurs connectés)."""
-    serializer_class = PackSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None
+    class Meta:
+        model = Pack
+        fields = [
+            'id', 'nom', 'description',
+            'prix', 'duree',
+            'limite_evenements', 'commission_pct',
+            'avantages', 'avantages_liste',
+            'is_actif', 'ordre',
+            # Options incluses
+            'mise_en_avant', 'stats_avancees', 'support_prioritaire', 'badge_verifie',
+            # Limites supplémentaires
+            'max_billets_par_event', 'max_types_billets', 'mises_en_avant_mois',
+            # Présentation commerciale
+            'couleur', 'etiquette', 'prix_barre', 'essai_jours',
+            'est_gratuit', 'est_illimite', 'nb_abonnes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def get_queryset(self):
-        return Pack.objects.filter(is_actif=True)
+    def get_nb_abonnes(self, obj):
+        return obj.abonnements.count()
 
+    def validate_prix(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Le prix ne peut pas être négatif.")
+        return value
 
-class MonAbonnementView(APIView):
-    """GET /api/auth/mon-abonnement/
-    Abonnement de l'organisateur connecté (ou null s'il n'en a pas)."""
-    permission_classes = [permissions.IsAuthenticated]
+    def validate_commission_pct(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("La commission doit être comprise entre 0 et 100 %.")
+        return value
 
-    def get(self, request):
-        abo = getattr(request.user, 'abonnement', None)
-        if not abo:
-            return Response(None)
-        return Response(AbonnementSerializer(abo).data)
+    def validate_couleur(self, value):
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", value or ""):
+            raise serializers.ValidationError("Couleur invalide (format attendu : #RRGGBB).")
+        return value
 
-
-# =========================================================================
-#  PACKS — côté admin : CRUD complet
-# =========================================================================
-
-class AdminPackListCreateView(generics.ListCreateAPIView):
-    """GET  /api/auth/admin/packs/  -> tous les packs (actifs + archivés)
-         ?is_actif=true|false pour filtrer
-    POST /api/auth/admin/packs/  -> créer un pack"""
-    serializer_class = PackSerializer
-    permission_classes = [IsAdminRole]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = Pack.objects.all()
-        is_actif = self.request.query_params.get('is_actif')
-        if is_actif == 'true':
-            qs = qs.filter(is_actif=True)
-        elif is_actif == 'false':
-            qs = qs.filter(is_actif=False)
-        return qs
-
-
-class AdminPackDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET/PATCH/DELETE /api/auth/admin/packs/<id>/
-    Suppression bloquée si le pack est encore utilisé par un abonnement."""
-    serializer_class = PackSerializer
-    permission_classes = [IsAdminRole]
-    queryset = Pack.objects.all()
-
-    def destroy(self, request, *args, **kwargs):
-        pack = self.get_object()
-        if pack.abonnements.exists():
-            return Response(
-                {'detail': "Ce pack est utilisé par des organisateurs. "
-                           "Désactivez-le plutôt que de le supprimer."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return super().destroy(request, *args, **kwargs)
+    def validate(self, attrs):
+        # Le prix barré n'a de sens que s'il est supérieur au prix actuel
+        prix = attrs.get('prix', getattr(self.instance, 'prix', 0))
+        prix_barre = attrs.get('prix_barre', getattr(self.instance, 'prix_barre', None))
+        if prix_barre is not None and prix_barre <= prix:
+            raise serializers.ValidationError(
+                {'prix_barre': "Le prix barré doit être supérieur au prix du pack."})
+        return attrs
 
 
-# =========================================================================
-#  ABONNEMENTS — côté admin : assigner un pack à un organisateur
-# =========================================================================
+class AbonnementSerializer(serializers.ModelSerializer):
+    """Sérialise l'abonnement d'un organisateur (avec détails du pack)."""
+    pack = PackSerializer(read_only=True)
+    pack_id = serializers.PrimaryKeyRelatedField(
+        queryset=Pack.objects.all(), source='pack', write_only=True
+    )
+    organisateur_email = serializers.EmailField(
+        source='organisateur.email', read_only=True
+    )
+    organisateur_nom = serializers.SerializerMethodField()
+    events_utilises = serializers.SerializerMethodField()
+    events_restants = serializers.SerializerMethodField()
+    est_expire = serializers.BooleanField(read_only=True)
+    est_actif = serializers.BooleanField(read_only=True)
 
-class AdminAbonnementListView(generics.ListAPIView):
-    """GET /api/auth/admin/abonnements/  -> tous les abonnements"""
-    serializer_class = AbonnementSerializer
-    permission_classes = [IsAdminRole]
-    pagination_class = None
-    queryset = Abonnement.objects.select_related(
-        'organisateur', 'pack', 'assigne_par'
-    ).all()
+    class Meta:
+        model = Abonnement
+        fields = [
+            'id', 'organisateur', 'organisateur_email', 'organisateur_nom',
+            'pack', 'pack_id',
+            'date_debut', 'date_fin', 'statut', 'est_expire', 'est_actif',
+            'events_utilises', 'events_restants',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'organisateur', 'date_debut', 'created_at', 'updated_at',
+        ]
 
+    def get_organisateur_nom(self, obj):
+        return f"{obj.organisateur.prenom} {obj.organisateur.nom}".strip()
 
-class AdminAssignerPackView(APIView):
-    """POST /api/auth/admin/users/<id>/assigner-pack/
-    body: { pack_id }
-    Assigne (ou remplace) le pack d'un organisateur."""
-    permission_classes = [IsAdminRole]
+    def get_events_utilises(self, obj):
+        return obj.events_utilises()
 
-    def post(self, request, pk):
-        user = get_object_or_404(User, pk=pk)
-
-        if not user.is_organisateur:
-            return Response(
-                {'detail': "Seul un organisateur peut recevoir un pack."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        pack_id = request.data.get('pack_id')
-        if not pack_id:
-            return Response(
-                {'detail': "Le pack_id est requis."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        pack = get_object_or_404(Pack, pk=pack_id)
-
-        # Date de fin selon la durée du pack (gratuit = pas d'expiration)
-        date_fin = None
-        if not pack.est_gratuit:
-            jours = 365 if pack.duree == 'annuel' else 30
-            date_fin = timezone.now() + timedelta(days=jours)
-
-        # Un organisateur a au plus un abonnement (OneToOne) : on met à jour
-        abo, cree = Abonnement.objects.update_or_create(
-            organisateur=user,
-            defaults={
-                'pack': pack,
-                'date_fin': date_fin,
-                'statut': 'actif',
-                'assigne_par': request.user,
-            },
-        )
-
-        # Notifier l'organisateur
-        notifier(
-            user,
-            f"Votre abonnement a été mis à jour : pack « {pack.nom} ».",
-            lien="/dashboard",
-        )
-
-        return Response(AbonnementSerializer(abo).data, status=status.HTTP_200_OK)
-
-
-class AdminRetirerPackView(APIView):
-    """POST /api/auth/admin/users/<id>/retirer-pack/
-    Retire l'abonnement d'un organisateur."""
-    permission_classes = [IsAdminRole]
-
-    def post(self, request, pk):
-        user = get_object_or_404(User, pk=pk)
-        abo = getattr(user, 'abonnement', None)
-        if not abo:
-            return Response(
-                {'detail': "Cet organisateur n'a pas d'abonnement."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        abo.delete()
-        return Response({'detail': "Abonnement retiré."}, status=status.HTTP_200_OK)
+    def get_events_restants(self, obj):
+        return obj.events_restants()

@@ -74,8 +74,8 @@ export default function OrganizerDrafts() {
         setEvents((prev) =>
           prev.map((e) => (e.id === event.id ? { ...e, statut: "en_attente" } : e))
         );
-      } catch {
-        toast.error("Erreur lors de la publication");
+      } catch (err) {
+        toast.error(err.response?.data?.detail || "Erreur lors de la publication");
       }
     }
   };

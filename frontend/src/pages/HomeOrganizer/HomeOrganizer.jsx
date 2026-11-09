@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Plus, ArrowRight, FileText, Sparkles, BarChart3, TrendingUp
+  Plus, ArrowRight, FileText, Sparkles, TrendingUp
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import {

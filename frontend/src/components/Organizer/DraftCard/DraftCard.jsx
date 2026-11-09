@@ -151,7 +151,7 @@ function calculateCompletion(event) {
   if (event.description && event.description.trim().length > 20) filled++;
   if (event.date_evenement) filled++;
   if (event.lieu && event.ville) filled++;
-  if (event.capacite_totale > 0 && event.types_billets?.length > 0) filled++;
+  if (event.capacite_totale > 0) filled++;
 
   return Math.round((filled / total) * 100);
 }

@@ -169,7 +169,7 @@ export default function EditEvent() {
       toast.success("Événement mis à jour !");
       navigate("/organizer");
     } catch (err) {
-      toast.error("Erreur lors de la sauvegarde");
+      toast.error(err.response?.data?.detail || "Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
     }
