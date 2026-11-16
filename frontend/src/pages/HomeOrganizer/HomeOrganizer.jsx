@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   Plus, ArrowRight, FileText, Sparkles, TrendingUp
@@ -15,6 +15,7 @@ import EventStatsTable from "../../components/EventStatsTable/EventStatsTable";
 import DemographicsPanel from "../../components/DemographicsPanel/DemographicsPanel";
 import EventsGrid from "../../components/EventsGrid/EventsGrid";
 import styles from "./HomeOrganizer.module.css";
+import { useSync } from "../../context/useSync";
 
 // Options du filtre de période
 const PERIODES = [
@@ -33,6 +34,10 @@ export default function HomeOrganizer() {
   const [demographics, setDemographics] = useState(null);
   const [periode, setPeriode] = useState(30);
   const [loading, setLoading] = useState(true);
+  // Chaque notification (réservation, validation, pack…) relance un chargement
+  // silencieux : le tableau de bord reste d'accord avec la cloche.
+  const { version } = useSync();
+  const periodeChargee = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,14 +71,16 @@ export default function HomeOrganizer() {
       }
     }
 
-    loadData();
-    // Polling : on rafraîchit les stats toutes les 30 s (effet "temps réel")
+    // Spinner seulement au premier chargement ou si la période change
+    loadData(periodeChargee.current === periode);
+    periodeChargee.current = periode;
+    // Polling : les vues n'envoient pas de notification, on les rafraîchit toutes les 30 s
     const interval = setInterval(() => loadData(true), 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [periode]);
+  }, [periode, version]);
 
   const initials = getInitials(user?.prenom, user?.nom);
 

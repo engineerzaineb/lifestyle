@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Calendar, Plus } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ import OrganizerEventsToolbar from "../../components/Organizer/OrganizerEventsTo
 import OrganizerEventCard from "../../components/Organizer/OrganizerEventCard/OrganizerEventCard";
 
 import styles from "./OrganizerEvents.module.css";
+import { useSync } from "../../context/useSync";
 
 
 export default function OrganizerEvents() {
@@ -39,13 +40,17 @@ export default function OrganizerEvents() {
   const debouncedQuery = useDebounce(query, 300);
 
   //chargement
+  // Recharge silencieusement à chaque nouveauté (décision de l'admin,
+  // annulation par l'organisateur…) : la page reste cohérente avec les notifications.
+  const { version } = useSync();
+  const dejaCharge = useRef(false);
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      if (!dejaCharge.current) setLoading(true);
       try {
         const data = await fetchMyEvents();
-        if (!cancelled) setEvents(data);
+        if (!cancelled) { setEvents(data); dejaCharge.current = true; }
       } catch (err) {
         toast.error("Impossible de charger vos événements");
       } finally {
@@ -54,7 +59,7 @@ export default function OrganizerEvents() {
     }
     load();
     return () => { cancelled = true; };
-  }, [toast]);
+  }, [toast, version]);
 
   // sync URL → tab
   useEffect(() => {

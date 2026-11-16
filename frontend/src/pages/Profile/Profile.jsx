@@ -16,6 +16,7 @@ import { VILLES_TUNISIE } from "../../utils/constants";
 import EditInterestsModal from "../../components/EditInterestsModal/EditInterestsModal";
 import styles from "./Profile.module.css";
 import FideliteCard from "../../components/FideliteCard/FideliteCard";
+import { useSync } from "../../context/useSync";
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -43,7 +44,9 @@ export default function Profile() {
   const toastRef = useRef(toast);
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
-  // Recharge les infos fraîches du backend au montage
+  // Recharge les infos fraîches du backend au montage et à chaque nouveauté
+  // (demande acceptée ou refusée, statut retiré…)
+  const { version } = useSync();
   useEffect(() => {
     getCurrentUser()
       .then((data) => {
@@ -62,7 +65,7 @@ export default function Profile() {
       })
       .finally(() => setLoadingDemande(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [version]);
 
   if (!profileData) return null;
 

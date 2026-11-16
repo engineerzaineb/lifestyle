@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { SyncProvider } from "./context/SyncContext";
 import { useAuth } from "./context/useAuth";
 
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
@@ -61,9 +62,12 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
+          {/* Source unique des notifications et compteurs : tout reste cohérent */}
+          <SyncProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </SyncProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSync } from "../../context/useSync";
 import {
   History, Search, X, Calendar, Tag, Package, CreditCard, Star, User, ChevronDown,
 } from "lucide-react";
@@ -102,6 +103,7 @@ export default function AdminJournal() {
   const [ouvert, setOuvert] = useState(null);
 
   const debouncedQuery = useDebounce(query, 300);
+  const { version } = useSync();
 
   // Recharge la 1re page à chaque changement de filtre ; « Voir plus » ajoute la suivante
   useEffect(() => {
@@ -109,7 +111,12 @@ export default function AdminJournal() {
     fetchJournal({ page, type, q: debouncedQuery.trim().length >= 2 ? debouncedQuery.trim() : "", depuis, jusqua })
       .then((data) => {
         if (cancelled) return;
-        setEntrees((prev) => (page === 1 ? data.results : [...prev, ...data.results]));
+        setEntrees((prev) => {
+          if (page === 1) return data.results;
+          // sans doublon : de nouvelles entrées ont pu décaler la pagination
+          const connus = new Set(prev.map((e) => e.id));
+          return [...prev, ...data.results.filter((e) => !connus.has(e.id))];
+        });
         setCount(data.count);
         setHasNext(Boolean(data.next));
       })
@@ -121,6 +128,27 @@ export default function AdminJournal() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [page, type, debouncedQuery, depuis, jusqua]);
+
+  // Une action vient d'avoir lieu (ici ou ailleurs) : les nouvelles entrées
+  // apparaissent en tête, sans perdre les pages déjà chargées.
+  const versionVue = useRef(version);
+  useEffect(() => {
+    if (version === versionVue.current) return undefined;
+    versionVue.current = version;
+    let cancelled = false;
+    fetchJournal({ page: 1, type, q: debouncedQuery.trim().length >= 2 ? debouncedQuery.trim() : "", depuis, jusqua })
+      .then((data) => {
+        if (cancelled) return;
+        setEntrees((prev) => {
+          const connus = new Set(prev.map((e) => e.id));
+          const nouvelles = data.results.filter((e) => !connus.has(e.id));
+          return nouvelles.length ? [...nouvelles, ...prev] : prev;
+        });
+        setCount(data.count);
+      })
+      .catch(() => { /* réessai au prochain changement */ });
+    return () => { cancelled = true; };
+  }, [version, type, debouncedQuery, depuis, jusqua]);
 
   // Un changement de filtre repart de la première page
   const changerFiltre = (setter) => (v) => { setter(v); setPage(1); setLoading(true); };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   fetchMyReservations,
@@ -17,6 +17,7 @@ import ReservationCard from "../../components/Reservations/ReservationCard/Reser
 import ReservationsEmptyState from "../../components/Reservations/ReservationsEmptyState/ReservationsEmptyState";
 
 import styles from "./MyReservations.module.css";
+import { useSync } from "../../context/useSync";
 
 
 export default function MyReservations() {
@@ -29,13 +30,17 @@ export default function MyReservations() {
   const [tab, setTab] = useState(searchParams.get("tab") || "all");
 
   // Chargement
+  // Recharge silencieusement à chaque nouveauté (décision de l'admin,
+  // annulation par l'organisateur…) : la page reste cohérente avec les notifications.
+  const { version } = useSync();
+  const dejaCharge = useRef(false);
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      if (!dejaCharge.current) setLoading(true);
       try {
         const data = await fetchMyReservations();
-        if (!cancelled) setReservations(data);
+        if (!cancelled) { setReservations(data); dejaCharge.current = true; }
       } catch (err) {
         toast.error("Impossible de charger vos réservations");
       } finally {
@@ -44,7 +49,7 @@ export default function MyReservations() {
     }
     load();
     return () => { cancelled = true; };
-  }, [toast]);
+  }, [toast, version]);
 
   // Sync URL → tab
   useEffect(() => {

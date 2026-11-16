@@ -1,27 +1,16 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Inbox, Calendar, Users, Tag, TrendingUp, Ticket, ArrowRight,
 } from "lucide-react";
-import { fetchAdminStats } from "../../services/adminService";
-import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { useSync } from "../../context/useSync";
 import styles from "./AdminOverview.module.css";
 
 export default function AdminOverview() {
-  const toast = useToastContext();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchAdminStats()
-      .then(setStats)
-      .catch((err) => {
-        console.error("Erreur stats admin:", err);
-        toast.error("Impossible de charger les statistiques");
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Les statistiques viennent de la source commune : ce sont exactement les
+  // chiffres des badges du menu, mis à jour en même temps (toutes les 10 s,
+  // à chaque changement de page et après chaque décision de l'admin).
+  const { adminStats: stats } = useSync();
+  const loading = stats === null;
 
   const cards = [
     {

@@ -9,6 +9,7 @@ import {
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { useAuth } from "../../context/useAuth";
+import { useSync } from "../../context/useSync";
 import { useDebounce } from "../../hooks/useDebounce";
 import styles from "./AdminUsers.module.css";
 
@@ -21,6 +22,7 @@ const FILTRES = [
 
 export default function AdminUsers() {
   const toast = useToastContext();
+  const { signalerChangement } = useSync();
   const { user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
@@ -77,6 +79,7 @@ useEffect(() => {
   const replaceUser = (updated) => {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     setSelected((prev) => (prev && prev.id === updated.id ? updated : prev));
+    signalerChangement(); // compteurs de la vue d'ensemble à jour
   };
 
   const handleToggleActive = async (u) => {

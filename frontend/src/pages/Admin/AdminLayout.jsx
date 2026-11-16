@@ -3,22 +3,32 @@ import {
   LayoutDashboard, Inbox, Calendar, Users, Tag, Package, History, Bell, ArrowLeft, Shield, LogOut,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
+import { useSync } from "../../context/useSync";
 import styles from "./AdminLayout.module.css";
 
+// `compteur` : clé du badge affiché à droite de l'entrée (voir `compteurs` plus bas)
 const MENU_ITEMS = [
   { to: "/admin", label: "Vue d'ensemble", icon: LayoutDashboard, end: true },
-  { to: "/admin/demandes", label: "Demandes", icon: Inbox },
-  { to: "/admin/events", label: "Événements", icon: Calendar },
+  { to: "/admin/demandes", label: "Demandes", icon: Inbox, compteur: "demandes" },
+  { to: "/admin/events", label: "Événements", icon: Calendar, compteur: "events" },
   { to: "/admin/users", label: "Utilisateurs", icon: Users },
-  { to: "/admin/categories", label: "Catégories", icon: Tag },
+  { to: "/admin/categories", label: "Catégories", icon: Tag, compteur: "categories" },
   { to: "/admin/packs", label: "Packs", icon: Package },
   { to: "/admin/journal", label: "Journal d'activité", icon: History },
-  { to: "/admin/notifications", label: "Notifications", icon: Bell },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell, compteur: "notifications" },
 ];
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Mêmes chiffres que la vue d'ensemble et la cloche : une seule source
+  const { adminStats, nonVues } = useSync();
+  const compteurs = {
+    demandes: adminStats?.demandes?.en_attente || 0,
+    events: adminStats?.events?.en_attente || 0,
+    categories: adminStats?.categories?.en_attente || 0,
+    notifications: nonVues,
+  };
 
   // Initiales pour l'avatar (repli sur la 1re lettre de l'email)
   const initials =
@@ -52,7 +62,15 @@ export default function AdminLayout() {
                 }
               >
                 <Icon size={18} />
-                {item.label}
+                <span className={styles.navLabel}>{item.label}</span>
+                {item.compteur && compteurs[item.compteur] > 0 && (
+                  <span
+                    className={styles.navBadge}
+                    aria-label={`${compteurs[item.compteur]} en attente`}
+                  >
+                    {compteurs[item.compteur] > 99 ? "99+" : compteurs[item.compteur]}
+                  </span>
+                )}
               </NavLink>
             );
           })}

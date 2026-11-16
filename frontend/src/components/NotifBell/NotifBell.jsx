@@ -1,37 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, Check } from "lucide-react";
-import {
-  fetchNotifications, marquerVues, marquerLue, toutMarquerLu,
-} from "../../services/notificationService";
+import { useSync } from "../../context/useSync";
 import styles from "./NotifBell.module.css";
 
 export default function NotifBell() {
   const navigate = useNavigate();
-  const [notifs, setNotifs] = useState([]);
-  const [nonLues, setNonLues] = useState(0);
-  const [nonVues, setNonVues] = useState(0);
+  // Tout vient de la source commune : la cloche, la page Notifications et le
+  // menu admin affichent toujours les mêmes chiffres.
+  const { notifs, nonVues, nonLues, estLue, voirTout, marquerUneLue, toutLire } = useSync();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
-  // Charge les notifications au montage
-  const charger = () => {
-    fetchNotifications()
-      .then((data) => {
-        setNotifs((data.results || []).slice(0, 10));
-        setNonLues(data.non_lues || 0);
-        setNonVues(data.non_vues || 0);
-      })
-      .catch(() => { /* silencieux */ });
-  };
-
-  // Chargement initial + polling : on rafraîchit la cloche toutes les 30 s
-  // pour un effet "temps réel" (sans WebSocket). On stoppe à la fermeture.
-  useEffect(() => {
-    charger();
-    const interval = setInterval(charger, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Ferme le menu si on clique ailleurs
   useEffect(() => {
@@ -42,26 +21,14 @@ export default function NotifBell() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // Clic sur une notification : marque lue + navigue vers le lien
-  const handleClick = async (notif) => {
-    if (!notif.lue) {
-      try {
-        await marquerLue(notif.id);
-        setNonLues((n) => Math.max(0, n - 1));
-        setNotifs((prev) => prev.map((x) => (x.id === notif.id ? { ...x, lue: true } : x)));
-      } catch { /* ignore */ }
-    }
+  // Clic sur une notification : marque lue (partout) + navigue vers le lien
+  const handleClick = (notif) => {
+    marquerUneLue(notif);
     setOpen(false);
     if (notif.lien) navigate(notif.lien);
   };
 
-  const handleToutLu = async () => {
-    try {
-      await toutMarquerLu();
-      setNonLues(0);
-      setNotifs((prev) => prev.map((x) => ({ ...x, lue: true })));
-    } catch { /* ignore */ }
-  };
+  const handleToutLu = () => toutLire(notifs[0]?.id);
 
   // Ouvre/ferme le menu. À l'ouverture, les notifications sont « vues » :
   // le badge rouge disparaît, mais chacune reste en surbrillance (non lue)
@@ -69,10 +36,7 @@ export default function NotifBell() {
   const toggleMenu = () => {
     const willOpen = !open;
     setOpen(willOpen);
-    if (willOpen && nonVues > 0) {
-      setNonVues(0);
-      marquerVues().catch(() => { /* ignore */ });
-    }
+    if (willOpen && nonVues > 0) voirTout();
   };
 
   const formatDate = (str) => new Date(str).toLocaleDateString("fr-FR", {
@@ -104,10 +68,10 @@ export default function NotifBell() {
               {notifs.map((n) => (
                 <button
                   key={n.id}
-                  className={`${styles.item} ${n.lue ? "" : styles.itemNonLue}`}
+                  className={`${styles.item} ${estLue(n) ? "" : styles.itemNonLue}`}
                   onClick={() => handleClick(n)}
                 >
-                  {!n.lue && <span className={styles.dot} />}
+                  {!estLue(n) && <span className={styles.dot} />}
                   <div className={styles.itemContent}>
                     <p className={styles.itemTitre}>{n.titre}</p>
                     <p className={styles.itemDate}>{formatDate(n.created_at)}</p>

@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Check, ChevronRight } from "lucide-react";
-import {
-  fetchNotifications, marquerVues, marquerLue, toutMarquerLu,
-} from "../../services/notificationService";
+import { fetchNotifications } from "../../services/notificationService";
+import { useSync } from "../../context/useSync";
 import styles from "./Notifications.module.css";
 
 const FILTRES = [
@@ -31,24 +30,30 @@ const formatDate = (str) =>
 
 export default function Notifications() {
   const navigate = useNavigate();
+  // Compteurs et état « lu » viennent de la source commune : la cloche et cette
+  // page sont toujours d'accord, même si on agit depuis l'une ou l'autre.
+  const { nonLues, version, estLue, voirTout, marquerUneLue, toutLire } = useSync();
   const [filtre, setFiltre] = useState("toutes");
   const [notifs, setNotifs] = useState([]);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [total, setTotal] = useState(0);
-  const [nonLues, setNonLues] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Charge une page ; la page 1 remplace la liste, les suivantes s'ajoutent
+  // (sans doublon : de nouvelles notifications ont pu décaler la pagination)
   useEffect(() => {
     let cancelled = false;
     fetchNotifications({ page, filtre })
       .then((data) => {
         if (cancelled) return;
-        setNotifs((prev) => (page === 1 ? data.results : [...prev, ...data.results]));
+        setNotifs((prev) => {
+          if (page === 1) return data.results;
+          const connus = new Set(prev.map((x) => x.id));
+          return [...prev, ...data.results.filter((x) => !connus.has(x.id))];
+        });
         setHasNext(data.has_next);
         setTotal(data.count);
-        setNonLues(data.non_lues);
       })
       .catch((err) => console.error("Erreur chargement notifications:", err))
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -57,8 +62,30 @@ export default function Notifications() {
 
   // Ouvrir la page = avoir vu ses notifications (le badge de la cloche disparaît)
   useEffect(() => {
-    marquerVues().catch(() => { /* ignore */ });
-  }, []);
+    voirTout();
+  }, [voirTout]);
+
+  // Une nouvelle notification arrive pendant que la page est ouverte :
+  // on l'ajoute en tête, sans perdre les pages déjà chargées, et elle est « vue ».
+  const versionAffichee = useRef(version);
+  useEffect(() => {
+    if (version === versionAffichee.current) return undefined;
+    versionAffichee.current = version;
+    let cancelled = false;
+    fetchNotifications({ page: 1, filtre })
+      .then((data) => {
+        if (cancelled) return;
+        setNotifs((prev) => {
+          const connus = new Set(prev.map((x) => x.id));
+          const nouvelles = data.results.filter((x) => !connus.has(x.id));
+          return nouvelles.length ? [...nouvelles, ...prev] : prev;
+        });
+        setTotal(data.count);
+        voirTout();
+      })
+      .catch(() => { /* on réessaiera au prochain changement */ });
+    return () => { cancelled = true; };
+  }, [version, filtre, voirTout]);
 
   const changerFiltre = (f) => {
     if (f === filtre) return;
@@ -72,29 +99,18 @@ export default function Notifications() {
     setPage((p) => p + 1);
   };
 
-  const handleClick = async (n) => {
-    if (!n.lue) {
-      try {
-        const maj = await marquerLue(n.id);
-        setNotifs((prev) => prev.map((x) => (x.id === n.id ? maj : x)));
-        setNonLues((v) => Math.max(0, v - 1));
-      } catch { /* ignore */ }
-    }
+  const handleClick = (n) => {
+    marquerUneLue(n);
     if (n.lien) navigate(n.lien);
   };
 
   const handleToutLu = async () => {
-    try {
-      await toutMarquerLu();
-      setNonLues(0);
-      if (filtre === "non_lues") {
-        setNotifs([]);
-        setTotal(0);
-        setHasNext(false);
-      } else {
-        setNotifs((prev) => prev.map((x) => ({ ...x, lue: true, vue: true })));
-      }
-    } catch { /* ignore */ }
+    await toutLire(notifs[0]?.id);
+    if (filtre === "non_lues") {
+      setNotifs([]);
+      setTotal(0);
+      setHasNext(false);
+    }
   };
 
   // Titre de groupe affiché au-dessus de la 1re notification de chaque période
@@ -151,10 +167,10 @@ export default function Notifications() {
                 {titreGroupe && <p className={styles.groupTitle}>{titreGroupe}</p>}
                 <button
                   type="button"
-                  className={`${styles.item} ${n.lue ? "" : styles.itemNonLue}`}
+                  className={`${styles.item} ${estLue(n) ? "" : styles.itemNonLue}`}
                   onClick={() => handleClick(n)}
                 >
-                  <span className={n.lue ? styles.dotLue : styles.dot} />
+                  <span className={estLue(n) ? styles.dotLue : styles.dot} />
                   <span className={styles.itemContent}>
                     <span className={styles.itemTitre}>{n.titre}</span>
                     <span className={styles.itemMeta}>

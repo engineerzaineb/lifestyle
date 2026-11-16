@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Tag, Plus, Pencil, Trash2, Check, X, Clock,
   CheckCircle, AlertTriangle, Calendar,
@@ -8,6 +8,7 @@ import {
   deleteCategorie, validerCategorie, refuserCategorie,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { useSync } from "../../context/useSync";
 import styles from "./AdminCategories.module.css";
 
 const TABS = [
@@ -50,6 +51,15 @@ export default function AdminCategories() {
     loadCategories();
   }, [loadCategories]);
 
+  // Nouvelle catégorie proposée, décision d'un autre admin… : la liste se recharge
+  const { version, signalerChangement } = useSync();
+  const versionVue = useRef(version);
+  useEffect(() => {
+    if (version === versionVue.current) return;
+    versionVue.current = version;
+    loadCategories();
+  }, [version, loadCategories]);
+
   const openCreate = () => {
     setForm(EMPTY_FORM);
     setFormError("");
@@ -84,6 +94,7 @@ export default function AdminCategories() {
       }
       setFormModal(null);
       loadCategories();
+      signalerChangement(); // badges et vue d'ensemble à jour
     } catch (err) {
       console.error("Erreur enregistrement catégorie:", err);
       const data = err.response?.data;
@@ -110,6 +121,7 @@ export default function AdminCategories() {
       await deleteCategorie(cat.id);
       toast.success("Catégorie supprimée");
       loadCategories();
+      signalerChangement(); // badges et vue d'ensemble à jour
     } catch (err) {
       console.error("Erreur suppression:", err);
       toast.error(err.response?.data?.detail || "Suppression impossible");
@@ -124,6 +136,7 @@ export default function AdminCategories() {
       await validerCategorie(cat.id);
       toast.success(`"${cat.nom}" validée`);
       loadCategories();
+      signalerChangement(); // badges et vue d'ensemble à jour
     } catch (err) {
       console.error("Erreur validation:", err);
       toast.error("Erreur lors de la validation");
@@ -143,6 +156,7 @@ export default function AdminCategories() {
       const res = await refuserCategorie(cat.id, motif.trim());
       toast.success(res.detail || "Proposition refusée");
       loadCategories();
+      signalerChangement(); // badges et vue d'ensemble à jour
     } catch (err) {
       console.error("Erreur refus:", err);
       toast.error("Erreur lors du refus");

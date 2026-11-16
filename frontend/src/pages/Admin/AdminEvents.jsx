@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Clock, CheckCircle, XCircle, Calendar, MapPin, Tag,
   Users, Banknote, FileText, X, Check, User,
@@ -7,6 +7,7 @@ import {
   fetchEventsAModerer, validerEvent, refuserEvent,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { useSync } from "../../context/useSync";
 import EventTimeline from "../../components/EventTimeline/EventTimeline";
 import { resumeStatut } from "../../utils/tracabilite";
 import styles from "./AdminEvents.module.css";
@@ -19,6 +20,7 @@ const TABS = [
 
 export default function AdminEvents() {
   const toast = useToastContext();
+  const { version, signalerChangement } = useSync();
   const [activeTab, setActiveTab] = useState("en_attente");
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,8 +30,8 @@ export default function AdminEvents() {
   const [processing, setProcessing] = useState(false);
 
   // Charge les événements selon l'onglet actif
-  const loadEvents = () => {
-    setLoading(true);
+  const loadEvents = (silencieux = false) => {
+    if (!silencieux) setLoading(true);
     fetchEventsAModerer(activeTab)
       .then((data) => setEvents(data))
       .catch((err) => {
@@ -44,6 +46,16 @@ export default function AdminEvents() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // Nouveauté ailleurs (nouvelle demande, décision d'un autre admin…) :
+  // la liste se recharge sans clignoter.
+  const versionVue = useRef(version);
+  useEffect(() => {
+    if (version === versionVue.current) return;
+    versionVue.current = version;
+    loadEvents(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
+
   // Valide un événement
   const handleValider = async (id) => {
     setProcessing(true);
@@ -52,6 +64,7 @@ export default function AdminEvents() {
       toast.success("Événement validé et publié.");
       setSelectedEvent(null);
       loadEvents();
+      signalerChangement(); // badges, vue d'ensemble et autres listes à jour
     } catch (err) {
       console.error("Erreur validation:", err);
       toast.error("Erreur lors de la validation");
@@ -74,6 +87,7 @@ export default function AdminEvents() {
       setMotifRefus("");
       setSelectedEvent(null);
       loadEvents();
+      signalerChangement(); // badges, vue d'ensemble et autres listes à jour
     } catch (err) {
       console.error("Erreur refus:", err);
       toast.error("Erreur lors du refus");

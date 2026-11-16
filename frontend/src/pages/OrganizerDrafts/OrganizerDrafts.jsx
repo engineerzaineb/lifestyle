@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   fetchMyEvents,
   filterByStatusTab,
@@ -14,6 +14,7 @@ import DraftCard from "../../components/Organizer/DraftCard/DraftCard";
 import DraftsEmptyState from "../../components/Organizer/DraftsEmptyState/DraftsEmptyState";
 
 import styles from "./OrganizerDrafts.module.css";
+import { useSync } from "../../context/useSync";
 
 
 export default function OrganizerDrafts() {
@@ -22,13 +23,17 @@ export default function OrganizerDrafts() {
   const [loading, setLoading] = useState(true);
 
   //chargement initial
+  // Recharge silencieusement à chaque nouveauté (décision de l'admin,
+  // annulation par l'organisateur…) : la page reste cohérente avec les notifications.
+  const { version } = useSync();
+  const dejaCharge = useRef(false);
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      if (!dejaCharge.current) setLoading(true);
       try {
         const data = await fetchMyEvents();
-        if (!cancelled) setEvents(data);
+        if (!cancelled) { setEvents(data); dejaCharge.current = true; }
       } catch {
         toast.error("Impossible de charger vos brouillons");
       } finally {
@@ -37,7 +42,7 @@ export default function OrganizerDrafts() {
     }
     load();
     return () => { cancelled = true; };
-  }, [toast]);
+  }, [toast, version]);
 
   // filtre uniquement les brouillons 
   const drafts = useMemo(

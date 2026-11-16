@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Clock, CheckCircle, XCircle, Building2, Phone, MapPin,
   Globe, FileText, Calendar, X, Check,
@@ -7,6 +7,7 @@ import {
   fetchDemandes, fetchDemandeDetail, validerDemande, refuserDemande,
 } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
+import { useSync } from "../../context/useSync";
 import styles from "./AdminDemandes.module.css";
 
 const TABS = [
@@ -23,6 +24,7 @@ const TYPE_LABELS = {
 
 export default function AdminDemandes() {
   const toast = useToastContext();
+  const { version, signalerChangement } = useSync();
   const [activeTab, setActiveTab] = useState("en_attente");
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,8 +34,8 @@ export default function AdminDemandes() {
   const [processing, setProcessing] = useState(false);
 
   // Charge les demandes selon l'onglet actif
-  const loadDemandes = () => {
-    setLoading(true);
+  const loadDemandes = (silencieux = false) => {
+    if (!silencieux) setLoading(true);
     fetchDemandes(activeTab)
       .then((data) => setDemandes(data))
       .catch((err) => {
@@ -47,6 +49,16 @@ export default function AdminDemandes() {
     loadDemandes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Nouveauté ailleurs (nouvelle demande, décision d'un autre admin…) :
+  // la liste se recharge sans clignoter.
+  const versionVue = useRef(version);
+  useEffect(() => {
+    if (version === versionVue.current) return;
+    versionVue.current = version;
+    loadDemandes(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
   // Ouvre le détail d'une demande
   const openDetail = async (id) => {
@@ -67,6 +79,7 @@ export default function AdminDemandes() {
       toast.success("Demande validée. L'utilisateur est maintenant organisateur.");
       setSelectedDemande(null);
       loadDemandes();
+      signalerChangement(); // badges, vue d'ensemble et autres listes à jour
     } catch (err) {
       console.error("Erreur validation:", err);
       toast.error("Erreur lors de la validation");
@@ -89,6 +102,7 @@ export default function AdminDemandes() {
       setMotifRefus("");
       setSelectedDemande(null);
       loadDemandes();
+      signalerChangement(); // badges, vue d'ensemble et autres listes à jour
     } catch (err) {
       console.error("Erreur refus:", err);
       toast.error("Erreur lors du refus");

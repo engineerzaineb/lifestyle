@@ -16,6 +16,7 @@ import { useAuth } from "../../context/useAuth";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import BrouillonModal from "../../components/BrouillonModal/BrouillonModal";
 import styles from "./DevenirOrganisateur.module.css";
+import { useSync } from "../../context/useSync";
 
 const TYPES = [
   { value: "entreprise", label: "Entreprise" },
@@ -55,6 +56,8 @@ export default function DevenirOrganisateur() {
   const [logo, setLogo] = useState(null);
   const [errors, setErrors] = useState({});
 
+  const { version } = useSync();
+
   // Charge la demande existante + les catégories
   useEffect(() => {
     Promise.all([
@@ -67,7 +70,8 @@ export default function DevenirOrganisateur() {
       setHistorique(histo || []);
       setLoading(false);
     });
-  }, []);
+    // `version` : la demande est relue dès qu'une décision arrive (acceptée, refusée)
+  }, [version]);
 
   // Charge les brouillons quand la demande est en attente
   useEffect(() => {
