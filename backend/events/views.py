@@ -95,10 +95,16 @@ class IsAdminRole(permissions.BasePermission):
 # HELPERS
 
 def _marquer_soumis(event, acteur):
-    """Date et trace l'envoi d'un événement à la validation admin."""
+    """Date et trace l'envoi d'un événement à la validation admin, et prévient
+    les admins — quel que soit le chemin (formulaire de création, modification
+    d'un brouillon, bouton « Publier » des brouillons)."""
     event.date_soumission = timezone.now()
     event.save(update_fields=['date_soumission'])
     journaliser('evenement', 'soumis', event, acteur=acteur, concerne=event.organisateur)
+    notifier_admins(
+        f"Nouvel événement à valider : « {event.titre} » par {event.organisateur.prenom} {event.organisateur.nom}.",
+        lien="/admin/events",
+    )
 
 
 # Filtre par période (today, weekend, month)
@@ -1296,7 +1302,12 @@ class EventViewSet(viewsets.ModelViewSet):
         msg = f"L'événement « {event.titre} » a été annulé."
         if motif:
             msg += f" Motif : {motif}"
+        msg += " Votre réservation est annulée et, si vous aviez payé, vous êtes remboursé."
         _notifier_participants(event, msg, lien=f"/event/{event.id}")
+
+        # Annule toutes les réservations (billets compris) et rembourse les paiements
+        from paiements.services import annuler_reservations_evenement
+        annuler_reservations_evenement(event, motif=motif, acteur=request.user)
 
         # Prévenir les admins de l'annulation de l'événement
         notifier_admins(
@@ -1369,13 +1380,8 @@ class EventViewSet(viewsets.ModelViewSet):
 
         event.statut = 'en_attente'
         event.save()
+        # Date, trace et prévient les admins
         _marquer_soumis(event, request.user)
-
-        # Prévenir les admins qu'un nouvel événement attend leur validation
-        notifier_admins(
-            f"Nouvel événement à valider : « {event.titre} » par {event.organisateur.prenom} {event.organisateur.nom}.",
-            lien="/admin",
-        )
 
         serializer = EventDetailSerializer(event, context={'request': request})
         return Response(serializer.data)
@@ -1564,15 +1570,45 @@ class ReservationViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'head', 'options']  # pas de put/patch/delete direct
 
     def get_queryset(self):
-        # Un user ne voit que SES réservations 
+        # Les réservations dont le délai de paiement est dépassé passent en « annulée »
+        from paiements.services import expirer_paiements
+        expirer_paiements()
+        # Un user ne voit que SES réservations
         return Reservation.objects.filter(user=self.request.user) \
             .select_related('event', 'event__categorie', 'event__organisateur') \
-            .prefetch_related('items', 'items__type_billet')
+            .prefetch_related('items', 'items__type_billet', 'billets', 'paiements')
 
     def get_serializer_class(self):
         if self.action == 'create':
             return ReservationCreateSerializer
         return ReservationReadSerializer
+
+    # POST /api/reservations/
+    # Gratuit : réservation confirmée et billets émis tout de suite.
+    # Payant  : réservation « en attente de paiement » + lien vers la page de paiement Stripe.
+    def create(self, request, *args, **kwargs):
+        from paiements import stripe_service
+        from paiements.services import demarrer_paiement_reservation
+        from .reservations import annuler_reservation
+
+        serializer = ReservationCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data['_total_prix'] > 0 and not stripe_service.est_configure():
+            return Response(
+                {'detail': "Le paiement en ligne n'est pas encore configuré (clé Stripe manquante)."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        reservation = serializer.save()
+        data = ReservationReadSerializer(reservation, context={'request': request}).data
+        if reservation.statut == 'en_attente_paiement':
+            try:
+                paiement = demarrer_paiement_reservation(reservation)
+            except stripe_service.PaiementIndisponible as e:
+                annuler_reservation(reservation, motif="Paiement indisponible.")
+                return Response({'detail': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            data = ReservationReadSerializer(reservation, context={'request': request}).data
+            data['checkout_url'] = paiement.checkout_url
+        return Response(data, status=status.HTTP_201_CREATED)
 
     # GET /api/reservations/mes-reservations/
     # Alias pour matcher l'URL utilisée par le frontend (identique au GET /reservations/)
@@ -1591,10 +1627,16 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 {'detail': 'Cette réservation est déjà annulée.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        reservation.statut = 'annulee'
-        reservation.date_annulation = timezone.now()
-        reservation.motif_annulation = (request.data.get('reason') or '').strip()
-        reservation.save()
+        from paiements.services import annuler_reservation_avec_paiement
+        from paiements.stripe_service import PaiementIndisponible
+
+        motif = (request.data.get('reason') or '').strip()
+        try:
+            issue = annuler_reservation_avec_paiement(reservation, motif=motif, acteur=request.user)
+        except PaiementIndisponible as e:
+            # Remboursement impossible : rien n'est annulé, la réservation reste valable
+            return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
+        reservation.refresh_from_db()
 
         event = reservation.event
         user = reservation.user
@@ -1606,37 +1648,33 @@ class ReservationViewSet(viewsets.ModelViewSet):
             lien=f"/event/{event.id}",
         )
         # Confirmer au participant l'annulation de SA réservation
-        notifier(
-            user,
-            f"Votre réservation pour « {event.titre} » (réf {reservation.code_reference}) a bien été annulée.",
-            lien="/my-reservations",
-        )
-        return Response(
-            ReservationReadSerializer(reservation, context={'request': request}).data
-        )
+        message = f"Votre réservation pour « {event.titre} » (réf {reservation.code_reference}) a bien été annulée."
+        if issue == 'rembourse':
+            message += f" Le montant de {reservation.total_prix} DT vous a été remboursé."
+        notifier(user, message, lien="/my-reservations")
+        data = ReservationReadSerializer(reservation, context={'request': request}).data
+        data['issue_annulation'] = issue
+        return Response(data)
 
     # GET /api/reservations/{id}/tickets-pdf/
-    # Placeholder : renvoie les infos billets en JSON 
+    # Billets au format PDF (un QR code par place) : seulement si la réservation est confirmée
     @action(detail=True, methods=['get'], url_path='tickets-pdf')
     def tickets_pdf(self, request, pk=None):
+        from django.http import HttpResponse
+        from .billets_pdf import generer_pdf_billets
+
         reservation = self.get_object()
-        return Response({
-            'code_reference': reservation.code_reference,
-            'event': reservation.event.titre,
-            'date': reservation.event.date_evenement,
-            'items': [
-                {
-                    'type': item.type_billet.nom,
-                    'quantite': item.quantite,
-                    'prix_unitaire': str(item.prix_unitaire),
-                }
-                for item in reservation.items.all()
-            ],
-            'total': str(reservation.total_prix),
-            'detail': 'Génération PDF à venir. Pour l\'instant, imprime cette page.',
-        })
-        
-        
+        if reservation.statut != 'confirmee' or not reservation.billets.exclude(statut='annule').exists():
+            return Response(
+                {'detail': "Les billets sont disponibles une fois la réservation confirmée."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        pdf = generer_pdf_billets(reservation)
+        reponse = HttpResponse(pdf, content_type='application/pdf')
+        reponse['Content-Disposition'] = f'attachment; filename="billets-{reservation.code_reference}.pdf"'
+        return reponse
+
+
 # ViewSet pour les favoris
 class FavoriViewSet(viewsets.ViewSet):
     """Gestion des favoris du user connecté."""

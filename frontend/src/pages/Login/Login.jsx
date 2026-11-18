@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Mail, Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle
@@ -14,6 +14,24 @@ import styles from "./Login.module.css";
 // Client ID Google fourni par le compte développeur de TWINKLE (via .env front).
 // Tant qu'il est vide, le bouton Google prévient que la config est manquante.
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+// Identifiant de l'application Meta for Developers (Facebook Login), via .env front
+const FACEBOOK_APP_ID = import.meta.env.VITE_FACEBOOK_APP_ID || "";
+const FACEBOOK_API_VERSION = import.meta.env.VITE_FACEBOOK_API_VERSION || "v22.0";
+
+// Le SDK Facebook est chargé à l'ouverture de la page : la fenêtre de connexion
+// doit s'ouvrir directement au clic, sinon le navigateur la bloque.
+function chargerSdkFacebook() {
+  if (!FACEBOOK_APP_ID || window.FB || document.getElementById("facebook-jssdk")) return;
+  window.fbAsyncInit = () => {
+    window.FB.init({ appId: FACEBOOK_APP_ID, cookie: false, xfbml: false, version: FACEBOOK_API_VERSION });
+  };
+  const s = document.createElement("script");
+  s.id = "facebook-jssdk";
+  s.src = "https://connect.facebook.net/fr_FR/sdk.js";
+  s.async = true;
+  s.defer = true;
+  document.body.appendChild(s);
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -30,6 +48,8 @@ export default function Login() {
 
   // Page de destination après login
   const redirectTo = location.state?.from || null;
+
+  useEffect(() => { chargerSdkFacebook(); }, []);
 
   // Validation du formulaire
   const validate = () => {
@@ -143,10 +163,14 @@ export default function Login() {
   // Connexion Facebook : nécessite le SDK Facebook + App ID (côté entreprise).
   const handleFacebookLogin = () => {
     setGlobalError("");
-    if (!window.FB) {
+    if (!FACEBOOK_APP_ID) {
       setGlobalError(
-        "La connexion Facebook n'est pas encore configurée (SDK/App ID manquant)."
+        "La connexion Facebook n'est pas encore configurée (VITE_FACEBOOK_APP_ID manquant)."
       );
+      return;
+    }
+    if (!window.FB) {
+      setGlobalError("Facebook est encore en cours de chargement. Réessayez dans un instant.");
       return;
     }
     window.FB.login(

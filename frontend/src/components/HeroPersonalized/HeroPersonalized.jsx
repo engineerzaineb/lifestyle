@@ -5,7 +5,7 @@ import { getInitials } from "../../utils/formatters";
 import styles from "./HeroPersonalized.module.css";
 
 
-export default function HeroPersonalized({ user, subtitle }) {
+export default function HeroPersonalized({ user, subtitle, children }) {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
@@ -58,6 +58,9 @@ export default function HeroPersonalized({ user, subtitle }) {
             Rechercher <ArrowRight size={13} />
           </button>
         </form>
+
+        {/* Contenu complémentaire fourni par la page (ex. choix de la ville) */}
+        {children && <div className={styles.extra}>{children}</div>}
 
         {/* Raccourcis */}
         <div className={styles.quickActions}>

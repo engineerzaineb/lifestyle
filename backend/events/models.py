@@ -70,6 +70,17 @@ class Tag(models.Model):
         return self.nom
 
 
+def q_places_occupees(prefixe='reservation__'):
+    """Filtre des réservations qui occupent des places : confirmées, ou en attente
+    de paiement dont le délai n'est pas encore dépassé."""
+    from django.db.models import Q
+    from django.utils import timezone
+    return Q(**{f'{prefixe}statut': 'confirmee'}) | Q(**{
+        f'{prefixe}statut': 'en_attente_paiement',
+        f'{prefixe}expire_le__gt': timezone.now(),
+    })
+
+
 class Event(models.Model):
     STATUT_CHOICES = (
     ('brouillon', 'Brouillon'),
@@ -323,10 +334,11 @@ class TypeBillet(models.Model):
 
     @property
     def places_restantes(self):
-        """Places encore dispo = capacite - places réservées (statut confirmee)."""
+        """Places encore dispo = capacite - places occupées : réservations confirmées
+        et réservations en attente de paiement dont le délai n'est pas dépassé."""
         from django.db.models import Sum
         reserved = self.reservation_items.filter(
-            reservation__statut='confirmee'
+            q_places_occupees()
         ).aggregate(total=Sum('quantite'))['total'] or 0
         return max(0, self.capacite - reserved)
 # TRACKING DES VUES 
@@ -354,6 +366,7 @@ class EventView(models.Model):
 # RÉSERVATIONS 
 class Reservation(models.Model):
     STATUT_CHOICES = (
+        ('en_attente_paiement', 'En attente de paiement'),
         ('confirmee', 'Confirmée'),
         ('annulee', 'Annulée'),
     )
@@ -369,6 +382,10 @@ class Reservation(models.Model):
     # Fidélité : trace de la remise appliquée au moment de la réservation
     remise_fidelite_pct = models.PositiveIntegerField(default=0)
     montant_remise_fidelite = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    # Réservation payante : les places sont bloquées jusqu'à cette date. Passé ce
+    # délai sans paiement, elles redeviennent disponibles et la réservation est annulée.
+    expire_le = models.DateTimeField(null=True, blank=True)
+    date_confirmation = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-date_reservation']
@@ -403,6 +420,35 @@ class ReservationItem(models.Model):
     @property
     def sous_total(self):
         return self.prix_unitaire * self.quantite
+
+
+class Billet(models.Model):
+    """Un billet = une place. Émis quand la réservation est confirmée
+    (après paiement, ou tout de suite si l'événement est gratuit)."""
+    STATUT_CHOICES = (
+        ('valide', 'Valide'),
+        ('utilise', 'Utilisé'),
+        ('annule', 'Annulé'),
+    )
+
+    reservation = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='billets')
+    type_billet = models.ForeignKey('TypeBillet', on_delete=models.PROTECT, related_name='billets')
+    # Code aléatoire non devinable : c'est lui que contient le QR code
+    code = models.CharField(max_length=20, unique=True)
+    statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='valide')
+    utilise_le = models.DateTimeField(null=True, blank=True)
+    controle_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='billets_controles',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.code} — {self.type_billet.nom} ({self.statut})"
+
+
 # FAVORIS 
 class Favori(models.Model):
     """Un favori = un lien entre un utilisateur et un événement."""

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import {
-  Calendar, MapPin, Hash, Eye, Download, XCircle, Ticket
+  Calendar, MapPin, Hash, Eye, Download, XCircle, Ticket, CreditCard, Clock
 } from "lucide-react";
 import {
   getReservationStatus,
@@ -16,7 +16,10 @@ export default function ReservationCard({ reservation, onAction }) {
   const statusDisplay = getReservationStatusDisplay(status);
   const canCancel = canCancelReservation(reservation);
   const isCancelled = status === "cancelled";
-  const isPast = status === "past";
+  const isPending = status === "pending";
+  const isConfirmed = reservation.statut === "confirmee";
+  const rembourse = reservation.paiement?.statut === "rembourse";
+  const lienPaiement = reservation.paiement?.url;
 
   return (
     <div className={`${styles.card} ${isCancelled ? styles.cancelled : ""}`}>
@@ -48,7 +51,7 @@ export default function ReservationCard({ reservation, onAction }) {
           </div>
           <div className={styles.totalBlock}>
             <p className={styles.totalLabel}>
-              {isCancelled ? "Remboursé" : "Total"}
+              {rembourse ? "Remboursé" : isPending ? "À payer" : "Total"}
             </p>
             <p className={`${styles.totalValue} ${reservation.total === 0 ? styles.totalGratuit : ""}`}>
               {reservation.total === 0 ? "Gratuit" : formatPrice(reservation.total)}
@@ -86,7 +89,18 @@ export default function ReservationCard({ reservation, onAction }) {
             Voir l'événement
           </Link>
 
-          {!isCancelled && !isPast && (
+          {isPending && lienPaiement && (
+            <button
+              type="button"
+              onClick={() => onAction("payer", reservation)}
+              className={styles.btnPrimary}
+            >
+              <CreditCard size={12} />
+              Payer maintenant
+            </button>
+          )}
+
+          {isConfirmed && (
             <button
               type="button"
               onClick={() => onAction("download", reservation)}
@@ -109,9 +123,17 @@ export default function ReservationCard({ reservation, onAction }) {
             </button>
           )}
 
+          {isPending && reservation.expire_le && (
+            <span className={styles.cancelInfo}>
+              <Clock size={11} /> Places gardées jusqu'à{" "}
+              {new Date(reservation.expire_le).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+
           {isCancelled && reservation.cancelled_at && (
             <span className={styles.cancelInfo}>
               Annulée {timeAgo(reservation.cancelled_at)}
+              {rembourse && " · remboursée"}
             </span>
           )}
         </div>

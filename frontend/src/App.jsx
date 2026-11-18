@@ -55,6 +55,11 @@ import AdminPacks from "./pages/Admin/AdminPacks";
 import AdminPackForm from "./pages/Admin/AdminPackForm";
 import AdminJournal from "./pages/Admin/AdminJournal";
 
+// Paiement en ligne (Stripe), abonnement des organisateurs et contrôle des billets
+import PaiementRetour from "./pages/Paiement/PaiementRetour";
+import OrganizerAbonnement from "./pages/OrganizerAbonnement/OrganizerAbonnement";
+import ControleBillets from "./pages/ControleBillets/ControleBillets";
+
 import "./App.css";
 
 export default function App() {
@@ -148,6 +153,23 @@ function AppContent() {
           } />
           <Route path="/organizer/edit/:id" element={
             <ProtectedRoute requireOrganisateur><EditEvent /></ProtectedRoute>
+          } />
+          <Route path="/organizer/abonnement" element={
+            <ProtectedRoute requireOrganisateur><OrganizerAbonnement /></ProtectedRoute>
+          } />
+          {/* Contrôle à l'entrée : le serveur vérifie que le billet concerne vos événements */}
+          <Route path="/controle" element={
+            <ProtectedRoute><ControleBillets /></ProtectedRoute>
+          } />
+          <Route path="/controle/:code" element={
+            <ProtectedRoute><ControleBillets /></ProtectedRoute>
+          } />
+          {/* Retour depuis la page de paiement Stripe */}
+          <Route path="/paiement/succes" element={
+            <ProtectedRoute><PaiementRetour mode="succes" /></ProtectedRoute>
+          } />
+          <Route path="/paiement/annule" element={
+            <ProtectedRoute><PaiementRetour mode="annule" /></ProtectedRoute>
           } />
           <Route path="/organizer/stats/:id" element={
             <ProtectedRoute requireOrganisateur><Placeholder name="Statistiques événement" /></ProtectedRoute>

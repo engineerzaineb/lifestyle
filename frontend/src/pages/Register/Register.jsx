@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User, Mail, Phone, MapPin, Lock, Eye, EyeOff,
-  ArrowRight, Check, AlertCircle,
+  ArrowRight, Check, AlertCircle, LocateFixed,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import { register as registerApi } from "../../services/authService";
 import { VILLES_TUNISIE } from "../../utils/constants";
-import LocationPermissionModal from "../../components/LocationPermissionModal/LocationPermissionModal";
+import { useVilleDepuisPosition } from "../../hooks/useVilleDepuisPosition";
 import styles from "./Register.module.css";
 
 export default function Register() {
@@ -35,8 +35,23 @@ export default function Register() {
   const [globalError, setGlobalError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Modal de géolocalisation
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  // Ville : choisie dans la liste, ou ville la plus proche si l'utilisateur
+  // clique sur « Utiliser ma position » (la position n'est jamais demandée d'office)
+  const { localiser, enCours: localisationEnCours } = useVilleDepuisPosition();
+  const [positionChoisie, setPositionChoisie] = useState(null);
+  const [messageVille, setMessageVille] = useState("");
+
+  const utiliserPosition = async () => {
+    setMessageVille("");
+    try {
+      const r = await localiser();
+      setFormData((f) => ({ ...f, ville: r.ville }));
+      setPositionChoisie({ latitude: r.latitude, longitude: r.longitude });
+      setMessageVille(`Ville la plus proche de vous : ${r.ville} (${r.distance} km)`);
+    } catch (err) {
+      setMessageVille(err.message);
+    }
+  };
 
   const handleFieldChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -116,18 +131,8 @@ export default function Register() {
     setGlobalError("");
     if (!validateForm()) return;
 
-    // On ouvre le modal de géoloc avant d'envoyer au backend
-    setShowLocationModal(true);
-  };
-
-  const handleLocationAllowed = async (position) => {
-    setShowLocationModal(false);
-    await submitRegistration(position);
-  };
-
-  const handleLocationDenied = async () => {
-    setShowLocationModal(false);
-    await submitRegistration(null);
+    // La position n'est envoyée que si l'utilisateur l'a lui-même partagée
+    submitRegistration(positionChoisie);
   };
 
   // Inscription au backend
@@ -156,8 +161,8 @@ export default function Register() {
       const response = await registerApi(payload);
       const { access, refresh, user } = response;
 
-      // Auto-connexion (skip location update car déjà envoyée)
-      login(user, access, refresh, true);
+      // Auto-connexion
+      login(user, access, refresh);
 
       // Étape de succès
       setStep(2);
@@ -213,18 +218,15 @@ export default function Register() {
             onTogglePasswordConfirm={() => setShowPasswordConfirm(!showPasswordConfirm)}
             onCguToggle={() => setCguAccepted(!cguAccepted)}
             onSubmit={handleSubmit}
+            onUtiliserPosition={utiliserPosition}
+            localisationEnCours={localisationEnCours}
+            messageVille={messageVille}
           />
         )}
 
         {step === 2 && <Step2Success />}
       </div>
 
-      {showLocationModal && (
-        <LocationPermissionModal
-          onAllow={handleLocationAllowed}
-          onDeny={handleLocationDenied}
-        />
-      )}
     </div>
   );
 }
@@ -259,6 +261,7 @@ function Step1Form({
   cguAccepted, passwordStrength, strengthLabel,
   onFieldChange, onTogglePassword, onTogglePasswordConfirm,
   onCguToggle, onSubmit,
+  onUtiliserPosition, localisationEnCours, messageVille,
 }) {
   return (
     <>
@@ -356,6 +359,16 @@ function Step1Form({
               ))}
             </select>
           </div>
+          <button
+            type="button"
+            className={styles.positionBtn}
+            onClick={onUtiliserPosition}
+            disabled={localisationEnCours}
+          >
+            <LocateFixed size={13} />
+            {localisationEnCours ? "Localisation…" : "Utiliser ma position"}
+          </button>
+          {messageVille && <p className={styles.villeHint}>{messageVille}</p>}
         </div>
 
         {/* Date de naissance (obligatoire) */}

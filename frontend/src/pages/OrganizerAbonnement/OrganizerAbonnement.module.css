@@ -1,0 +1,136 @@
+/* Mon abonnement (organisateur) */
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  padding: 40px 16px 64px;
+}
+
+.container {
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+}
+
+.titre {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 400;
+  margin-bottom: 20px;
+}
+
+.titre em {
+  color: var(--color-primary);
+}
+
+.actuel {
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  margin-bottom: 14px;
+}
+
+.actuelNom {
+  font-size: 16px;
+}
+
+.actuelDetail {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.explication {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.btnPayer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPayer:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.badge {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.sousTitre {
+  margin: 36px 0 12px;
+  font-size: 18px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table th {
+  background: var(--color-surface-alt);
+  font-weight: 600;
+}
+
+.statut {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-alt);
+}
+
+.reussi { background: var(--color-success-light); color: var(--color-success-text); }
+.echoue, .expire, .annule { background: var(--color-danger-light); color: var(--color-danger-text); }
+.en_attente { background: var(--color-warning-light); color: var(--color-warning-text); }
+
+.tourne {
+  animation: tourner 1s linear infinite;
+}
+
+@keyframes tourner {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+}

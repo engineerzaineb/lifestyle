@@ -13,10 +13,17 @@ import HeroPersonalized from "../../components/HeroPersonalized/HeroPersonalized
 import EventsGrid from "../../components/EventsGrid/EventsGrid";
 import CategoriesGrid from "../../components/CategoriesGrid/CategoriesGrid";
 import CTAFinal from "../../components/CTAFinal/CTAFinal";
+import VilleSelector from "../../components/VilleSelector/VilleSelector";
+import { useChangerVille } from "../../hooks/useChangerVille";
+import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import styles from "./HomeUser.module.css";
 
 export default function HomeUser() {
   const { user } = useAuth();
+  const toast = useToastContext();
+  // Ville choisie dans la liste, ou ville la plus proche via « Utiliser ma position ».
+  // Toutes les sections se rechargent quand elle change (dépendance user?.ville).
+  const { changerVille, enregistrement } = useChangerVille();
   const [recommendations, setRecommendations] = useState([]);
   const [nearbyEvents, setNearbyEvents] = useState([]);
   const [bonsPlans, setBonsPlans] = useState([]);
@@ -67,7 +74,18 @@ export default function HomeUser() {
   return (
     <div className={styles.page}>
       {/* HERO PERSONNALISÉ */}
-      <HeroPersonalized user={user} />
+      <HeroPersonalized
+        user={user}
+        subtitle={user?.ville ? undefined : "Choisissez votre ville pour voir aussi les événements près de chez vous."}
+      >
+        <VilleSelector
+          value={user?.ville}
+          label={user?.ville ? "Vos sorties à" : "Votre ville"}
+          onChange={(ville, position) => changerVille(ville, position)}
+          onErreur={(message) => toast.warning(message)}
+          disabled={enregistrement}
+        />
+      </HeroPersonalized>
 
       {/* 1. POUR VOUS (intérêts) */}
       <section className={styles.section}>
@@ -88,7 +106,7 @@ export default function HomeUser() {
                 Recommandés <em className={styles.sectionTitleEm}>pour vous</em>
               </h2>
               <p className={styles.sectionSubtitle}>
-                Basés sur vos goûts et votre localisation
+                Basés sur vos goûts et votre ville
               </p>
             </div>
             <Link to="/search" className={styles.sectionAction}>
@@ -130,8 +148,8 @@ export default function HomeUser() {
         </section>
       )}
 
-      {/* 3. PRÈS DE CHEZ VOUS */}
-      {user?.ville && nearbyEvents.length > 0 && (
+      {/* 3. PRÈS DE CHEZ VOUS (ville choisie par l'utilisateur) */}
+      {user?.ville && (nearbyEvents.length > 0 || !loading) && (
         <section className={styles.section}>
           <div className={styles.sectionContainer}>
             <div className={styles.sectionHeader}>
@@ -141,7 +159,7 @@ export default function HomeUser() {
                   Près de <em className={styles.sectionTitleEm}>{user.ville}</em>
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  Les événements à proximité de chez vous
+                  Les prochains événements dans votre ville
                 </p>
               </div>
               <Link
@@ -152,7 +170,14 @@ export default function HomeUser() {
               </Link>
             </div>
 
-            <EventsGrid events={nearbyEvents} loading={loading} skeletonCount={3} />
+            {nearbyEvents.length > 0 ? (
+              <EventsGrid events={nearbyEvents} loading={loading} skeletonCount={3} />
+            ) : (
+              <p className={styles.villeVide}>
+                Aucun événement à venir à {user.ville} pour le moment.{" "}
+                <Link to="/discover">Voir les autres villes</Link>
+              </p>
+            )}
           </div>
         </section>
       )}

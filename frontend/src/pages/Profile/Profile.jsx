@@ -4,12 +4,12 @@ import {
   Mail, Phone, MapPin, Heart, Edit3, Plus,
   ShieldCheck, Sparkles, Ticket, CheckCircle, AlertCircle,
   Briefcase, Clock, XCircle, ArrowRight, Store,
-  Lock, Save, X, Eye, EyeOff, Navigation, Loader2,
+  Lock, Save, X, Eye, EyeOff, Loader2, LocateFixed,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import {
   getCurrentUser, getMyDemandeOrganisateur,
-  updateProfile, changePassword, updateLocation,
+  updateProfile, changePassword,
 } from "../../services/authService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
 import { VILLES_TUNISIE } from "../../utils/constants";
@@ -17,6 +17,8 @@ import EditInterestsModal from "../../components/EditInterestsModal/EditInterest
 import styles from "./Profile.module.css";
 import FideliteCard from "../../components/FideliteCard/FideliteCard";
 import { useSync } from "../../context/useSync";
+import { useVilleDepuisPosition } from "../../hooks/useVilleDepuisPosition";
+import { useChangerVille } from "../../hooks/useChangerVille";
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -38,7 +40,8 @@ export default function Profile() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // Localisation
-  const [locating, setLocating] = useState(false);
+  const { localiser, enCours: locating } = useVilleDepuisPosition();
+  const { changerVille } = useChangerVille();
 
   // Ref sur toast : évite de relancer les effets à chaque notification
   const toastRef = useRef(toast);
@@ -173,41 +176,17 @@ export default function Profile() {
     }
   };
 
-  // === LOCALISATION ===
-
-  const handleActivateLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Votre navigateur ne gère pas la géolocalisation");
-      return;
+  // === VILLE ===
+  // La position n'est demandée qu'au clic : elle sert uniquement à choisir
+  // la ville la plus proche, enregistrée comme si l'utilisateur l'avait choisie.
+  const handleUtiliserPosition = async () => {
+    try {
+      const proche = await localiser();
+      const maj = await changerVille(proche.ville, proche);
+      if (maj) setProfileData(maj);
+    } catch (err) {
+      toast.warning(err.message);
     }
-
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          await updateLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            source: "manual",
-          });
-          const fresh = await getCurrentUser();
-          setProfileData(fresh);
-          updateUser(fresh);
-          toast.success("Position enregistrée");
-        } catch (err) {
-          console.error("Erreur mise à jour position :", err);
-          toast.error("Impossible d'enregistrer la position");
-        } finally {
-          setLocating(false);
-        }
-      },
-      (err) => {
-        console.warn("Géolocalisation refusée :", err.message);
-        toast.warning("Vous avez refusé l'accès à votre position");
-        setLocating(false);
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-    );
   };
 
   return (
@@ -348,44 +327,26 @@ export default function Profile() {
                 <span className={styles.infoLabel}>Ville</span>
                 <span className={styles.infoValue}>
                   {profileData.ville || "Non renseignée"}
-                </span>
-              </div>
-
-              <div className={styles.infoRow}>
-                <Navigation size={16} className={styles.infoIcon} />
-                <span className={styles.infoLabel}>Localisation</span>
-                <span className={styles.infoValue}>
-                  {profileData.has_location ? (
-                    <span className={`${styles.locationStatus} ${styles.locationOn}`}>
-                      <CheckCircle size={12} />
-                      Activée
-                    </span>
-                  ) : (
-                    <span className={`${styles.locationStatus} ${styles.locationOff}`}>
-                      <AlertCircle size={12} />
-                      Non activée
-                    </span>
-                  )}
                   <button
                     type="button"
-                    onClick={handleActivateLocation}
+                    onClick={handleUtiliserPosition}
                     disabled={locating}
                     className={styles.locationBtn}
                   >
                     {locating ? (
                       <><Loader2 size={12} className={styles.spin} /> Localisation...</>
-                    ) : profileData.has_location ? (
-                      "Mettre à jour"
                     ) : (
-                      "Activer"
+                      <><LocateFixed size={12} /> Utiliser ma position</>
                     )}
                   </button>
                 </span>
               </div>
 
               <p className={styles.locationHint}>
-                Votre position sert uniquement à vous proposer les événements
-                proches de chez vous.
+                Votre ville sert à vous proposer les événements près de chez vous.
+                Choisissez-la dans « Modifier », ou utilisez votre position :
+                elle n'est demandée qu'à ce moment-là et sert seulement à trouver
+                la ville la plus proche.
               </p>
             </>
           )}

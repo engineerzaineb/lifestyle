@@ -504,6 +504,7 @@ class JournalActivite(models.Model):
         ('abonnement', 'Abonnement'),
         ('organisateur', 'Organisateur'),
         ('utilisateur', 'Utilisateur'),
+        ('paiement', 'Paiement'),
     )
 
     ACTION_CHOICES = (
@@ -524,6 +525,9 @@ class JournalActivite(models.Model):
         ('retrograde', 'Statut organisateur retiré'),
         ('desactive', 'Compte désactivé'),
         ('active', 'Compte réactivé'),
+        ('paye', 'Payé'),
+        ('echoue', 'Échoué'),
+        ('rembourse', 'Remboursé'),
     )
 
     type_cible = models.CharField(max_length=20, choices=TYPE_CHOICES)

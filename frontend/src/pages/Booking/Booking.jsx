@@ -105,8 +105,14 @@ export default function Booking() {
         initialSelection,
         event.types_billets
       );
+      if (reservation.checkout_url) {
+        // Événement payant : paiement sur la page officielle de Stripe.
+        // Le retour se fait sur /paiement/succes ou /paiement/annule.
+        window.location.assign(reservation.checkout_url);
+        return;
+      }
       setConfirmed(reservation);
-      toast.success("Réservation confirmée !");
+      toast.success("Réservation confirmée ! Vos billets sont disponibles.");
     } catch (err) {
       console.error("Erreur création réservation :", err);
       // Le backend peut renvoyer plusieurs formats d'erreur
@@ -116,7 +122,6 @@ export default function Booking() {
       else if (Array.isArray(data?.items)) msg = data.items[0];
       else if (data?.event_id) msg = data.event_id;
       toast.error(msg);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -193,7 +198,9 @@ export default function Booking() {
           Confirmer votre <em className={styles.titleEm}>réservation</em>
         </h1>
         <p className={styles.subtitle}>
-          Vérifie les détails avant de confirmer. Aucun paiement n'est requis.
+          {totalFinal > 0
+            ? "Vérifiez les détails, puis payez par carte sur la page sécurisée de Stripe."
+            : "Vérifiez les détails avant de confirmer. Cet événement est gratuit."}
         </p>
 
         <div className={styles.grid}>
@@ -303,18 +310,19 @@ export default function Booking() {
                 className={styles.confirmBtn}
               >
                 {submitting ? (
-                  "Confirmation en cours..."
+                  totalFinal > 0 ? "Redirection vers le paiement..." : "Confirmation en cours..."
                 ) : (
                   <>
-                    Confirmer la réservation
+                    {totalFinal > 0 ? `Payer ${totalFinal.toFixed(2)} DT` : "Confirmer la réservation"}
                     <ArrowRight size={16} />
                   </>
                 )}
               </button>
 
               <p className={styles.notice}>
-                En confirmant, vous acceptez les conditions de l'événement.
-                Vous pouvez annuler à tout moment depuis <em>Mes réservations</em>.
+                {totalFinal > 0
+                  ? <>Vos places sont gardées le temps du paiement. Vos billets seront disponibles dès le paiement confirmé, dans <em>Mes réservations</em>.</>
+                  : <>En confirmant, vous acceptez les conditions de l'événement. Vous pouvez annuler depuis <em>Mes réservations</em>.</>}
               </p>
             </div>
           </aside>

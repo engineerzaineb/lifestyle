@@ -106,7 +106,8 @@ export function calculateUserStats(reservations) {
     };
   }
 
-  const active = reservations.filter((r) => r.statut !== "annule");
+  // Dépenses et billets : seulement les réservations confirmées (payées ou gratuites)
+  const active = reservations.filter((r) => r.statut === "confirmee");
   const upcoming = filterByReservationTab(reservations, "upcoming");
 
   const totalSpent = active.reduce((sum, r) => sum + (r.total || 0), 0);
@@ -125,6 +126,7 @@ export function calculateUserStats(reservations) {
 
 export function getReservationStatus(reservation) {
   if (reservation.statut === "annule") return "cancelled";
+  if (reservation.statut === "en_attente_paiement") return "pending";
 
   const now = new Date();
   const eventDate = new Date(reservation.event.date_evenement);
@@ -144,6 +146,7 @@ export function getReservationStatusDisplay(status) {
     today: { label: "🔴 Aujourd'hui", color: "warning" },
     past: { label: "Passé", color: "neutral" },
     cancelled: { label: "Annulé", color: "danger" },
+    pending: { label: "Paiement en attente", color: "warning" },
   };
   return map[status] || map.upcoming;
 }
@@ -151,6 +154,8 @@ export function getReservationStatusDisplay(status) {
 
 export function canCancelReservation(reservation) {
   if (reservation.statut === "annule") return false;
+  // Pas encore payée : on peut toujours libérer les places
+  if (reservation.statut === "en_attente_paiement") return true;
 
   const now = new Date();
   const eventDate = new Date(reservation.event.date_evenement);
@@ -172,16 +177,20 @@ export async function cancelReservation(reservationId, reason = "") {
   return data;
 }
 
-// Télécharge les billets (PDF) 
-export async function downloadTickets(reservationId) {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, 800));
-    
-    return { success: true, url: `mock-tickets-${reservationId}.pdf` };
-  }
-
-  const { data } = await api.get(`/reservations/${reservationId}/tickets-pdf/`);
-  return data;
+// Télécharge les billets en PDF (un QR code par place) et l'enregistre sur l'appareil
+export async function downloadTickets(reservationId, codeReference = "") {
+  const { data } = await api.get(`/reservations/${reservationId}/tickets-pdf/`, {
+    responseType: "blob",
+  });
+  const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+  const lien = document.createElement("a");
+  lien.href = url;
+  lien.download = `billets-${codeReference || reservationId}.pdf`;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
 }
 
 

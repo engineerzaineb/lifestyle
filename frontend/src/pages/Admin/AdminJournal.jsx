@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSync } from "../../context/useSync";
 import {
-  History, Search, X, Calendar, Tag, Package, CreditCard, Star, User, ChevronDown,
+  History, Search, X, Calendar, Tag, Package, CreditCard, Star, User, ChevronDown, Wallet,
 } from "lucide-react";
 import { fetchJournal } from "../../services/adminService";
 import { useToastContext } from "../../components/iu/Toast/ToastProvider";
@@ -16,6 +16,7 @@ const TYPES = [
   { value: "abonnement", label: "Abonnements", icon: CreditCard },
   { value: "organisateur", label: "Organisateurs", icon: Star },
   { value: "utilisateur", label: "Comptes", icon: User },
+  { value: "paiement", label: "Paiements", icon: Wallet },
 ];
 
 const ICONES = Object.fromEntries(TYPES.filter((t) => t.icon).map((t) => [t.value, t.icon]));
@@ -23,8 +24,10 @@ const ICONES = Object.fromEntries(TYPES.filter((t) => t.icon).map((t) => [t.valu
 // Couleur du badge selon l'action
 const TON = {
   valide: "succes", publie: "succes", active: "succes", promu: "succes", reactive: "succes", attribue: "succes",
+  paye: "succes",
   refuse: "danger", supprime: "danger", annule: "danger", desactive: "danger", retire: "danger", retrograde: "danger",
-  archive: "neutre",
+  echoue: "danger",
+  archive: "neutre", rembourse: "neutre",
 };
 
 // Libellés lisibles pour les clés de « details »
@@ -36,6 +39,7 @@ const LIBELLES = {
   nom: "Nom", is_actif: "Actif", commission_pct: "Commission (%)",
   max_billets_par_event: "Billets max par événement", max_types_billets: "Types de billets max",
   icone: "Icône", couleur: "Couleur",
+  montant: "Montant", reference_stripe: "Référence Stripe",
 };
 
 const formatDateHeure = (d) =>

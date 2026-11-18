@@ -1,0 +1,88 @@
+/* Page de retour après le paiement Stripe */
+.page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  background: var(--color-bg);
+}
+
+.carte {
+  width: 100%;
+  max-width: 520px;
+  padding: 40px 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.icone {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.succes { background: var(--color-success-light); color: var(--color-success); }
+.danger { background: var(--color-danger-light); color: var(--color-danger); }
+.info { background: var(--color-primary-light); color: var(--color-primary); }
+
+.titre {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 400;
+  margin-bottom: 10px;
+  color: var(--color-text);
+}
+
+.texte {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.actions {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btnPrincipal,
+.btnSecondaire {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btnPrincipal {
+  border: none;
+  color: white;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-pink));
+}
+
+.btnSecondaire {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.tourne {
+  animation: tourner 1s linear infinite;
+}
+
+@keyframes tourner {
+  to { transform: rotate(360deg); }
+}

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { AuthContext } from "./authContextValue";
 import { STORAGE_KEYS } from "../utils/constants";
-import { updateLocation } from "../services/authService";
 
 /**
  * AuthProvider - Gère l'état d'authentification de l'app
@@ -36,9 +35,12 @@ export function AuthProvider({ children }) {
    * @param {object} userData - données du user
    * @param {string} accessToken - JWT access token
    * @param {string} refreshTokenValue - JWT refresh token
-   * @param {boolean} skipLocationUpdate - si true, ne pas faire d'auto-update (utile après register)
+   *
+   * La position n'est plus demandée automatiquement : l'utilisateur choisit sa
+   * ville dans la liste, ou clique lui-même sur « Utiliser ma position »
+   * (accueil, profil, inscription) pour sélectionner la ville la plus proche.
    */
-  const login = (userData, accessToken, refreshTokenValue = null, skipLocationUpdate = false) => {
+  const login = (userData, accessToken, refreshTokenValue = null) => {
     // 1. Stocker en localStorage AVANT toute autre opération
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     localStorage.setItem(STORAGE_KEYS.TOKEN, accessToken);
@@ -52,58 +54,6 @@ export function AuthProvider({ children }) {
     if (refreshTokenValue) {
       setRefreshToken(refreshTokenValue);
     }
-
-    // 3. Auto-géolocalisation : SEULEMENT au login (pas au register)
-    // Et seulement si le user n'a pas déjà une position récente
-    if (!skipLocationUpdate) {
-      autoUpdateLocation(userData);
-    }
-  };
-
-  /**
-   * Met à jour la position automatiquement
-   * Uniquement si le user n'a pas de position récente (< 1 jour)
-   */
-  const autoUpdateLocation = (userData) => {
-    if (!navigator.geolocation) return;
-
-    // Un admin n'a aucun usage de sa position : ni recommandations, ni boost ville.
-    if (userData?.role === "admin") return;
-
-    // Vérifier si l'utilisateur a déjà une position récente
-    const lastUpdate = userData?.last_location_update;
-    if (lastUpdate) {
-      const lastUpdateDate = new Date(lastUpdate);
-      const now = new Date();
-      const hoursSinceUpdate = (now - lastUpdateDate) / (1000 * 60 * 60);
-
-      // Si position mise à jour il y a moins de 1 heure, on ne refait pas
-      if (hoursSinceUpdate < 1) {
-        console.log("📍 Position déjà à jour, pas de nouvelle requête");
-        return;
-      }
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const updated = await updateLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            source: "login",
-          });
-          // Synchronise le user local pour que le cache d'1h soit effectif
-          if (updated) updateUser(updated);
-        } catch (err) {
-          console.warn("Impossible de mettre à jour la position :", err.message);
-        }
-      },
-      // Refus silencieux
-      (err) => {
-        console.warn("Géolocalisation refusée :", err.message);
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
-    );
   };
 
   /**

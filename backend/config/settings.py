@@ -1,4 +1,4 @@
-from decouple import config
+from decouple import config, Csv
 from pathlib import Path
 from datetime import timedelta
 
@@ -7,7 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Sécurité
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Ajouter l'adresse publique (ex. abcd.ngrok-free.app) pour une démonstration en ligne
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+# Derrière un tunnel HTTPS (ngrok…) : les liens générés (aperçu de partage) restent en https
+if config('DERRIERE_PROXY', default=False, cast=bool):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
 
 # Applications installées
 INSTALLED_APPS = [
@@ -26,6 +31,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
+
+    # Paiement en ligne (Stripe) et billets
+    'paiements',
 
     # Allauth (pour OAuth Google/Facebook plus tard)
     'allauth',
@@ -149,7 +157,7 @@ SOCIALACCOUNT_PROVIDERS = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-]
+] + config('CORS_ORIGINES_SUPPLEMENTAIRES', default='', cast=Csv())
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -193,6 +201,17 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Eventu <noreply@event
 
 # URL du frontend, utilisée pour construire les liens envoyés par email
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+
+# PAIEMENT EN LIGNE (Stripe, mode test) — les clés restent dans le fichier .env
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')          # sk_test_...
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')  # whsec_...
+STRIPE_DEVISE = config('STRIPE_DEVISE', default='tnd')
+# Seulement si STRIPE_DEVISE n'est pas tnd : montant envoyé = prix en DT x taux
+STRIPE_TAUX_CONVERSION = config('STRIPE_TAUX_CONVERSION', default=1, cast=float)
+# Temps laissé pour payer (minutes, entre 31 et 1440) : les places restent bloquées
+PAIEMENT_DELAI_MINUTES = config('PAIEMENT_DELAI_MINUTES', default=35, cast=int)
+# Annulation d'une réservation payée par le participant : remboursement automatique
+REMBOURSEMENT_AUTORISE = config('REMBOURSEMENT_AUTORISE', default=True, cast=bool)
 
 # Durée de validité des jetons de réinitialisation (24 heures)
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24

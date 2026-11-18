@@ -7,8 +7,9 @@ import styles from "./PackCard.module.css";
  * Carte d'un pack d'abonnement (liste admin et aperçu du formulaire).
  * @param {object} pack - pack tel que renvoyé par l'API
  * @param {ReactNode} actions - boutons affichés en haut à droite (optionnel)
+ * @param {boolean} catalogue - vue organisateur : sans nombre d'abonnés ni dates de gestion
  */
-export default function PackCard({ pack, actions = null }) {
+export default function PackCard({ pack, actions = null, catalogue = false }) {
   const couleur = pack.couleur || "#4F46E5";
   const options = PACK_OPTIONS.filter((o) => pack[o.key]);
   const hasLimitesBilletterie =
@@ -48,7 +49,7 @@ export default function PackCard({ pack, actions = null }) {
         <span>
           <Percent size={12} /> Commission {Number(pack.commission_pct)} %
         </span>
-        {pack.nb_abonnes !== undefined && (
+        {!catalogue && pack.nb_abonnes !== undefined && (
           <span className={styles.cardCount}>
             <Users size={12} /> {pack.nb_abonnes} abonné{pack.nb_abonnes > 1 ? "s" : ""}
           </span>
@@ -95,7 +96,7 @@ export default function PackCard({ pack, actions = null }) {
         </ul>
       )}
 
-      {pack.created_at && (
+      {!catalogue && pack.created_at && (
         <p className={styles.dates}>
           Créé le {formatDateHeure(pack.created_at)}
           {pack.updated_at && pack.updated_at !== pack.created_at &&

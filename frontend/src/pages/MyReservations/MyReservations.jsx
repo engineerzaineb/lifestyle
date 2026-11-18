@@ -68,28 +68,38 @@ export default function MyReservations() {
 
   // ACTIONS
   const handleAction = async (action, reservation) => {
-    if (action === "cancel") {
-      if (!confirm(`Annuler votre réservation pour "${reservation.event.titre}" ?\n\nVous serez remboursé sous 3-5 jours ouvrés.`)) return;
+    if (action === "payer") {
+      // Reprend le paiement sur la page Stripe tant que les places sont gardées
+      window.location.assign(reservation.paiement.url);
+    } else if (action === "cancel") {
+      const paye = reservation.paiement?.statut === "reussi";
+      const question = reservation.statut === "en_attente_paiement"
+        ? `Annuler votre réservation pour "${reservation.event.titre}" ?\n\nLes places seront libérées.`
+        : paye
+          ? `Annuler votre réservation pour "${reservation.event.titre}" ?\n\nLe montant payé (${reservation.total} DT) vous sera remboursé sur votre carte.`
+          : `Annuler votre réservation pour "${reservation.event.titre}" ?`;
+      if (!confirm(question)) return;
       try {
-        await cancelReservation(reservation.id);
+        const maj = await cancelReservation(reservation.id);
         setReservations((prev) =>
           prev.map((r) =>
             r.id === reservation.id
-              ? { ...r, statut: "annule", cancelled_at: new Date().toISOString() }
+              ? { ...r, statut: "annule", cancelled_at: maj.date_annulation, paiement: maj.paiement }
               : r
           )
         );
-        toast.success("Réservation annulée. Remboursement en cours.");
+        toast.success(maj.issue_annulation === "rembourse"
+          ? "Réservation annulée. Le remboursement a été effectué."
+          : "Réservation annulée.");
       } catch (err) {
-        toast.error("Erreur lors de l'annulation");
+        toast.error(err.response?.data?.detail || "Erreur lors de l'annulation");
       }
     } else if (action === "download") {
       try {
-        await downloadTickets(reservation.id);
-        toast.success("Téléchargement des billets en cours...");
-        // En vrai : window.open(result.url) ou triggers download
-      } catch (err) {
-        toast.error("Erreur lors du téléchargement");
+        await downloadTickets(reservation.id, reservation.code);
+        toast.success("Billets téléchargés.");
+      } catch {
+        toast.error("Impossible de télécharger les billets");
       }
     }
   };

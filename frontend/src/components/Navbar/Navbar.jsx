@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Home, Compass, Search, Mail, LogIn, UserPlus, Menu, X,
   Bell, Plus, Calendar, FileText, User, LogOut, Settings,
-  ShieldCheck, Sparkles,Heart
+  ShieldCheck, Sparkles, Heart, Package, ScanLine,
 } from "lucide-react";
 import styles from "./Navbar.module.css";
 import NotifBell from "../NotifBell/NotifBell";
@@ -215,6 +215,14 @@ function UserMenu({ user, isOpen, setIsOpen, onLogout }) {
                 <Link to="/organizer/drafts" className={styles.dropdownLink}>
                   <FileText size={14} />
                   Brouillons
+                </Link>
+                <Link to="/organizer/abonnement" className={styles.dropdownLink}>
+                  <Package size={14} />
+                  Mon abonnement
+                </Link>
+                <Link to="/controle" className={styles.dropdownLink}>
+                  <ScanLine size={14} />
+                  Contrôle des billets
                 </Link>
               </>
             )}

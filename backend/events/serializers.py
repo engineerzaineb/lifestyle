@@ -1,9 +1,11 @@
 from decimal import Decimal
 from rest_framework import serializers
 from django.utils.text import slugify
-from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationItem
+from .models import Event, Categorie, Tag, TypeBillet, Reservation, ReservationItem, Billet
 from .fidelite import remise_fidelite_pct
-from .models import Notification, notifier
+from .models import Notification, notifier, q_places_occupees
+from .reservations import confirmer_reservation, delai_paiement
+from django.utils import timezone
 
 
 def _nom_complet(user):
@@ -414,19 +416,50 @@ class ReservationItemCreateSerializer(serializers.Serializer):
     quantite = serializers.IntegerField(min_value=1, max_value=20)
 
 
+class BilletSerializer(serializers.ModelSerializer):
+    type_billet = serializers.CharField(source='type_billet.nom', read_only=True)
+    statut_label = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = Billet
+        fields = ['code', 'type_billet', 'statut', 'statut_label', 'utilise_le']
+
+
 class ReservationReadSerializer(serializers.ModelSerializer):
     event = EventListSerializer(read_only=True)
     items = ReservationItemReadSerializer(many=True, read_only=True)
     total_places = serializers.IntegerField(read_only=True)
+    statut_label = serializers.CharField(source='get_statut_display', read_only=True)
+    billets = BilletSerializer(many=True, read_only=True)
+    paiement = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
         fields = [
-            'id', 'code_reference', 'statut', 'total_prix', 'remise_fidelite_pct', 'montant_remise_fidelite',
-            'total_places',
-            'date_reservation', 'date_annulation', 'motif_annulation',
-            'event', 'items',
+            'id', 'code_reference', 'statut', 'statut_label', 'total_prix',
+            'remise_fidelite_pct', 'montant_remise_fidelite', 'total_places',
+            'date_reservation', 'date_confirmation', 'expire_le',
+            'date_annulation', 'motif_annulation',
+            'event', 'items', 'billets', 'paiement',
         ]
+
+    def get_paiement(self, obj):
+        """Dernier paiement en ligne de la réservation (aucun si l'événement est gratuit).
+        `url` permet de reprendre le paiement tant que le délai n'est pas dépassé."""
+        paiements = sorted(obj.paiements.all(), key=lambda p: p.created_at, reverse=True)
+        if not paiements:
+            return None
+        p = paiements[0]
+        ouvert = (p.statut == 'en_attente' and obj.statut == 'en_attente_paiement'
+                  and obj.expire_le and obj.expire_le > timezone.now())
+        return {
+            'statut': p.statut,
+            'statut_label': p.get_statut_display(),
+            'montant': str(p.montant),
+            'paye_le': p.paye_le,
+            'rembourse_le': p.rembourse_le,
+            'url': p.checkout_url if ouvert else None,
+        }
 
 
 class ReservationCreateSerializer(serializers.Serializer):
@@ -498,8 +531,9 @@ class ReservationCreateSerializer(serializers.Serializer):
                     raise serializers.ValidationError(
                         {'items': [f"Type de billet {item['type_billet']} introuvable."]}
                     )
+                # Places occupées : confirmées + en attente de paiement non expirées
                 reserved = tb.reservation_items.filter(
-                    reservation__statut='confirmee'
+                    q_places_occupees()
                 ).aggregate(total=Sum('quantite'))['total'] or 0
                 restantes = max(0, tb.capacite - reserved)
                 if item['quantite'] > restantes:
@@ -514,13 +548,16 @@ class ReservationCreateSerializer(serializers.Serializer):
             montant_remise = (total_prix * Decimal(pct) / Decimal(100)).quantize(Decimal('0.01'))
             total_paye = total_prix - montant_remise
 
+            # Gratuit : confirmée tout de suite. Payant : places bloquées le temps du paiement.
+            payant = total_paye > 0
             reservation = Reservation.objects.create(
                 user=user,
                 event=event,
                 total_prix=total_paye,
                 remise_fidelite_pct=pct,
                 montant_remise_fidelite=montant_remise,
-                statut='confirmee',
+                statut='en_attente_paiement',
+                expire_le=timezone.now() + delai_paiement() if payant else None,
             )
             for item in items_data:
                 tb = billets[item['type_billet']]
@@ -531,18 +568,10 @@ class ReservationCreateSerializer(serializers.Serializer):
                     prix_unitaire=tb.prix,
                 )
 
-        # Notifier l'organisateur de la nouvelle réservation, avec le détail
-        # (hors transaction : la réservation est confirmée et commitée).
-        detail_billets = ", ".join(
-            f"{item['quantite']}x {billets[item['type_billet']].nom}"
-            for item in items_data
-        )
-        notifier(
-            event.organisateur,
-            f"Nouvelle réservation pour « {event.titre} » par {user.prenom} {user.nom} "
-            f"({detail_billets}) — total {total_paye} DT. Réf : {reservation.code_reference}.",
-            lien=f"/event/{event.id}",
-        )
+        # Événement gratuit : confirmation immédiate (billets émis, organisateur prévenu).
+        # Événement payant : la confirmation viendra du paiement (webhook Stripe).
+        if not payant:
+            reservation, _ = confirmer_reservation(reservation)
 
         return reservation
     

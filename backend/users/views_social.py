@@ -112,7 +112,25 @@ class FacebookLoginView(APIView):
             return Response({'detail': 'Token Facebook manquant.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # On demande l'email + le nom à l'API Graph en présentant l'access_token
+        # 1) Le jeton doit avoir été émis pour NOTRE application Facebook
+        #    (sinon, un jeton obtenu par une autre application serait accepté).
+        fb_cfg = settings.SOCIALACCOUNT_PROVIDERS.get('facebook', {}).get('APP', {})
+        app_id, app_secret = fb_cfg.get('client_id'), fb_cfg.get('secret')
+        if app_id and app_secret:
+            try:
+                verif = requests.get(
+                    'https://graph.facebook.com/debug_token',
+                    params={'input_token': token, 'access_token': f'{app_id}|{app_secret}'},
+                    timeout=10,
+                ).json().get('data', {})
+            except (requests.RequestException, ValueError):
+                return Response({'detail': 'Impossible de contacter Facebook.'},
+                                status=status.HTTP_502_BAD_GATEWAY)
+            if not verif.get('is_valid') or str(verif.get('app_id')) != str(app_id):
+                return Response({'detail': 'Token Facebook invalide pour cette application.'},
+                                status=status.HTTP_401_UNAUTHORIZED)
+
+        # 2) On demande l'email + le nom à l'API Graph en présentant l'access_token
         try:
             resp = requests.get(
                 'https://graph.facebook.com/me',

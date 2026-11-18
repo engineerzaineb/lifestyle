@@ -7,6 +7,7 @@ from events.views_share import share_event
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
+    path('api/paiements/', include('paiements.urls')),
     path('api/', include('events.urls')),
     path('share/event/<int:pk>/', share_event, name='share-event'),
     
