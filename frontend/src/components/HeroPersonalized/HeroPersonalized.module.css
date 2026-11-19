@@ -134,6 +134,12 @@
 /* ============================================================
    BARRE DE RECHERCHE COMPACTE
    ============================================================ */
+/* Zone libre sous la recherche (choix de la ville sur l'accueil) */
+.extra {
+  margin-top: 16px;
+  margin-bottom: 10px;
+}
+
 .searchBar {
   max-width: 720px;
   background: var(--color-surface);
