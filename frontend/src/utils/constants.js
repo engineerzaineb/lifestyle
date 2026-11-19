@@ -1,5 +1,5 @@
-// URL de base du backend 
-export const API_BASE_URL = "http://localhost:8000/api";
+// URL de base du backend : à changer dans frontend/.env (VITE_API_URL) pour un tunnel ou un hébergement
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 // Rôles utilisateurs 
 export const ROLES = {

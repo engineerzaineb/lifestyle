@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { villeLaPlusProche } from "../utils/villes "
+import { villeLaPlusProche } from "../utils/villes";
 
 /**
  * useVilleDepuisPosition — demande la position SEULEMENT quand l'utilisateur
